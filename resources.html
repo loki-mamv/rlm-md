@@ -133,6 +133,55 @@ print(response.response)</pre>
     <section class="section fade-in">
         <div class="split">
             <div>
+                <span class="split-label">Framework support</span>
+                <h2>DSPy and Google ADK</h2>
+            </div>
+            <div>
+                <p><strong>DSPy RLM Support (v3.1.2+)</strong><br>
+                <a href="https://dspy.ai/" target="_blank">dspy.ai</a><br>
+                Stanford's programmatic LLM framework has built-in RLM support. Initialize with <code>dspy.RLM('input -> output')</code> and it handles REPL setup, sub-calls, and aggregation. Supports separate sub-call models via <code>sub_lm</code> parameter.</p>
+
+                <p><strong>Google ADK Implementation (by Liam Connell)</strong><br>
+                <a href="https://medium.com/google-cloud/recursive-language-models-in-adk-d9dc736f0478" target="_blank">medium.com/google-cloud/recursive-language-models-in-adk-d9dc736f0478</a><br>
+                Enterprise-ready reimplementation using Google's Agent Development Kit. Extends the paper with lazy file loading (GCS, local filesystem) and parallelism for sub-calls. Published January 2026.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Press coverage</span>
+                <h2>What people are writing</h2>
+            </div>
+            <div>
+                <p><strong>VentureBeat</strong> -- <a href="https://venturebeat.com/orchestration/mits-new-recursive-framework-lets-llms-process-10-million-tokens-without" target="_blank">"MIT's new 'recursive' framework lets LLMs process 10 million tokens without context rot"</a><br>
+                Detailed technical breakdown of the paper with cost analysis and model comparison notes.</p>
+
+                <p><strong>InfoQ</strong> -- <a href="https://www.infoq.com/news/2026/01/mit-recursive-lm/" target="_blank">"MIT's Recursive Language Models Improve Performance on Long-Context Tasks"</a><br>
+                Engineering-focused summary, includes Alex Zhang's "bitter-lesson-pilled" framing and the partially observable problem insight.</p>
+
+                <p><strong>Towards Data Science</strong> -- <a href="https://towardsdatascience.com/going-beyond-the-context-window-recursive-language-models-in-action/" target="_blank">"Going Beyond the Context Window: Recursive Language Models in Action"</a><br>
+                Practical walkthrough using DSPy's RLM implementation to process 386K tokens of articles with Claude Sonnet 4.5.</p>
+
+                <p><strong>The Neuron</strong> -- <a href="https://www.theneuron.ai/explainer-articles/recursive-language-models-rlms-the-clever-hack-that-gives-ai-infinite-memory/" target="_blank">"Recursive Language Models: The Clever Hack That Gives AI Infinite Memory"</a><br>
+                Accessible explainer with the library analogy and key results summary.</p>
+
+                <p><strong>WordLift</strong> -- <a href="https://wordlift.io/blog/en/recursive-language-models-on-kg/" target="_blank">"RLM-on-KG: Recursive Language Models and the Future of SEO"</a><br>
+                Explores RLM applications for knowledge graphs and search engine optimization.</p>
+
+                <p><strong>DEV Community</strong> -- <a href="https://dev.to/gaodalie_ai/rlm-the-ultimate-evolution-of-ai-recursive-language-models-3h8o" target="_blank">"RLM: The Ultimate Evolution of AI?"</a><br>
+                Developer-oriented overview of the paradigm shift from passive reading to active problem-solving.</p>
+
+                <p><strong>Dextralabs</strong> -- <a href="https://dextralabs.com/blog/recursive-language-models-rlm/" target="_blank">"Why Recursive Language Models Beat Long-Context LLMs"</a><br>
+                Enterprise-focused analysis with practical implications for legal, engineering, and data teams.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
                 <span class="split-label">Related work</span>
                 <h2>Papers worth reading alongside RLMs</h2>
             </div>
