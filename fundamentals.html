@@ -3,134 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fundamentals — rlm.md</title>
-    <meta name="description" content="Core concepts of Recursive Learning Models: mathematical foundations, key architectures, and what makes learning recursive.">
+    <title>Fundamentals -- rlm.md</title>
+    <meta name="description" content="Core concepts of recursive learning: the generate-evaluate-filter-retrain loop, why recursive beats linear scaling, and the mathematical foundations.">
     <link rel="canonical" href="https://rlm.md/fundamentals.html">
-    <meta property="og:title" content="Fundamentals — rlm.md">
-    <meta property="og:description" content="Core concepts of Recursive Learning Models: mathematical foundations, key architectures, and what makes learning recursive.">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <nav>
-            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
-            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                <li><a href="fundamentals.html" class="active">Fundamentals</a></li>
-                <li><a href="techniques.html">Techniques</a></li>
-                <li><a href="research.html">Research</a></li>
-                <li><a href="applications.html">Applications</a></li>
-                <li><a href="resources.html">Resources</a></li>
-            </ul>
-        </nav>
+
+<nav class="site-nav">
+    <a href="./" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="./">Home</a></li>
+        <li><a href="fundamentals.html" class="active">Fundamentals</a></li>
+        <li><a href="techniques.html">Techniques</a></li>
+        <li><a href="research.html">Research</a></li>
+        <li><a href="applications.html">Applications</a></li>
+        <li><a href="resources.html">Resources</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <header class="page-header fade-in">
+        <span class="hero-label">Fundamentals</span>
+        <h1>The core loop</h1>
+        <p class="lead">Recursive learning isn't complicated. A system generates output, judges that output, keeps the good parts, and trains on them. Rinse, repeat, get smarter. The devil is in making this actually work.</p>
     </header>
 
-    <main>
-        <section class="hero" style="padding:4rem 2rem 3rem">
-            <h1>Fundamentals</h1>
-            <p>What makes learning "recursive," the mathematical foundations, and key architectural patterns.</p>
-        </section>
+    <!-- Section 1: The Loop -->
+    <section class="section fade-in">
+        <h2>Generate. Evaluate. Filter. Retrain.</h2>
+        <p>Every recursive learning system, no matter how sophisticated, reduces to four operations:</p>
 
-        <section>
-            <div class="container">
-                <h2>What Makes Learning Recursive?</h2>
-                <p class="lead">A learning system is <strong style="color:var(--accent-light)">recursive</strong> when its outputs feed back as inputs to the same (or similar) learning process. This creates a feedback loop where each iteration can build on previous results.</p>
+        <div class="card-grid" style="margin: 2rem 0;">
+            <div class="card">
+                <div class="card-number">GENERATE</div>
+                <h3>Produce candidates</h3>
+                <p>The model generates many possible outputs for a given input. Diversity matters -- you need the search space to contain something better than what you started with.</p>
+            </div>
+            <div class="card">
+                <div class="card-number">EVALUATE</div>
+                <h3>Score quality</h3>
+                <p>Something judges which outputs are good. This is the hard part. The judge can be a separate model, a reward function, a verifier, or the environment itself.</p>
+            </div>
+            <div class="card">
+                <div class="card-number">FILTER</div>
+                <h3>Keep the winners</h3>
+                <p>Discard the bad, keep the good. Sometimes this is binary (right/wrong). Sometimes it's a ranking. The filtering mechanism determines what the system learns to value.</p>
+            </div>
+            <div class="card">
+                <div class="card-number">RETRAIN</div>
+                <h3>Update the model</h3>
+                <p>Fine-tune on the filtered outputs. The model becomes slightly better at producing high-quality responses. Now loop back to step one.</p>
+            </div>
+        </div>
 
-                <p>In traditional machine learning, the pipeline is linear: collect data → train model → deploy. In recursive learning, the model's own outputs become part of the training signal, creating iterative self-refinement.</p>
+        <p>This is self-play generalized. AlphaGo Zero played games against itself and kept the strategies that won. STaR generates rationales, keeps the ones that lead to correct answers, and trains on them. DeepSeek-R1 generates reasoning chains, scores them with reward functions, and updates via reinforcement learning.</p>
+        <p>Same loop. Different implementations.</p>
+    </section>
 
-                <h3 class="mt-2">Three Flavors of Recursion in AI</h3>
-                <div class="card-grid">
-                    <div class="card">
-                        <h4>1. Training-Time Recursion</h4>
-                        <p>The model generates data that is used to retrain itself. Examples: self-play in games (AlphaGo), synthetic data generation, iterative distillation. The model's weights change each cycle.</p>
-                        <pre><span class="code-comment"># Pseudocode: Self-play training loop</span>
-<span class="code-keyword">for</span> iteration <span class="code-keyword">in</span> range(N):
-    games = model.self_play(num_games=<span class="code-string">1000</span>)
-    model.train(games)  <span class="code-comment"># Output → Input</span></pre>
-                    </div>
-                    <div class="card">
-                        <h4>2. Inference-Time Recursion</h4>
-                        <p>The model reasons recursively at runtime without weight updates. Chain-of-thought, tree search, and MIT's RLM framework all use recursive inference to improve outputs.</p>
-                        <pre><span class="code-comment"># MIT RLM: Recursive sub-calls</span>
-<span class="code-keyword">def</span> <span class="code-func">rlm</span>(prompt, depth=<span class="code-string">0</span>):
-    <span class="code-keyword">if</span> fits_context(prompt):
-        <span class="code-keyword">return</span> llm(prompt)
-    chunks = decompose(prompt)
-    results = [rlm(c, depth+<span class="code-string">1</span>) <span class="code-keyword">for</span> c <span class="code-keyword">in</span> chunks]
-    <span class="code-keyword">return</span> llm(aggregate(results))</pre>
-                    </div>
-                    <div class="card">
-                        <h4>3. Alignment Recursion</h4>
-                        <p>Models evaluate and improve their own behavior against criteria. Constitutional AI critiques its own responses, RLHF trains reward models from model outputs, and recursive reward modeling chains evaluations.</p>
-                        <pre><span class="code-comment"># Constitutional AI self-critique</span>
-response = model.generate(prompt)
-critique = model.evaluate(
-    response,
-    principles=constitution
-)
-revised = model.revise(response, critique)</pre>
-                    </div>
+    <hr class="divider">
+
+    <!-- Section 2: Why recursive beats linear -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">The key insight</span>
+                <h2>Why recursive beats linear</h2>
+            </div>
+            <div>
+                <p>Traditional machine learning is a one-shot deal. Collect data from humans, train, deploy, done. If you want a better model, you need better data, which means more human effort.</p>
+                <p>Recursive learning breaks this dependency. Each iteration produces training data for the next. The cost of improvement decouples from the cost of human annotation.</p>
+                <p>In formal terms: if a model at iteration <em>t</em> has capability <em>C(t)</em>, and each recursion improves capability by some factor, then:</p>
+                <pre><code><span class="comment">// Linear scaling (traditional)</span>
+C(t) = C(0) + k * human_effort(t)
+
+<span class="comment">// Recursive scaling</span>
+C(t+1) = f(C(t))  <span class="comment">// where f improves on its input</span></code></pre>
+                <p>The second equation is powerful because the input quality improves each round. If <em>f</em> consistently produces outputs better than its inputs -- even slightly -- the capability compounds.</p>
+                <p>This is why Silver et al.'s 2017 result was so striking. AlphaGo Zero started from random play and, through pure self-play, surpassed every human Go player and every previous AI system. No human game data at all. The recursive loop was sufficient.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Section 3: The verification problem -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">The hard part</span>
+                <h2>Verification is everything</h2>
+            </div>
+            <div>
+                <p>Recursive learning only works if the evaluation step is reliable. If your judge is broken, you'll train on garbage and compound the errors.</p>
+                <p>This is why recursive learning has succeeded first in domains with clear verification:</p>
+                <ul style="margin: 1rem 0 1.5rem 1.5rem; color: var(--text-muted);">
+                    <li style="margin-bottom:0.5rem;"><strong>Games</strong> -- you win or you lose</li>
+                    <li style="margin-bottom:0.5rem;"><strong>Mathematics</strong> -- proofs are checkable</li>
+                    <li style="margin-bottom:0.5rem;"><strong>Code</strong> -- tests pass or they don't</li>
+                    <li style="margin-bottom:0.5rem;"><strong>Formal logic</strong> -- statements are valid or invalid</li>
+                </ul>
+                <p>Open-ended domains like creative writing or ethical reasoning are harder. There's no compiler for "is this a good essay." This is exactly why techniques like RLHF and constitutional AI exist -- they're attempts to build reliable verifiers for fuzzy domains.</p>
+                <div class="callout" style="margin-top: 2rem;">
+                    <p>The dirty secret of recursive learning: the ceiling on improvement is set by the quality of your verifier, not the capability of your generator. Invest in verification.</p>
                 </div>
             </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Mathematical Foundations</h2>
-
-                <h3>Fixed-Point Iteration</h3>
-                <p>Many recursive learning processes can be understood as searching for a <strong style="color:var(--accent-light)">fixed point</strong> — a state where further iteration doesn't change the output. If <em>f</em> is the learning operator:</p>
-                <pre>x_{n+1} = f(x_n)    <span class="code-comment"># Iterate until x* = f(x*)</span></pre>
-                <p>Self-play converges when the agent can no longer improve against itself. RLHF converges when the policy maximizes the reward model. Chain-of-thought stops when the answer stabilizes.</p>
-
-                <h3 class="mt-2">Bellman Recursion (RL Foundation)</h3>
-                <p>Reinforcement learning is inherently recursive. The Bellman equation defines value recursively:</p>
-                <pre>V(s) = max_a [ R(s,a) + γ · V(s') ]   <span class="code-comment"># Value depends on future values</span></pre>
-                <p>This recursive structure is the mathematical backbone of RLHF, PPO, and all RL-based training of language models.</p>
-
-                <h3 class="mt-2">Recursive Decomposition</h3>
-                <p>Divide-and-conquer applied to reasoning. MIT's RLM framework formalizes this: a problem P is decomposed into sub-problems P₁...Pₖ, each solved recursively, then aggregated:</p>
-                <pre>RLM(P) = Aggregate( RLM(P₁), RLM(P₂), ..., RLM(Pₖ) )    <span class="code-comment"># if |P| > context</span>
-RLM(P) = LLM(P)                                           <span class="code-comment"># base case</span></pre>
-            </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Key Architectures</h2>
-
-                <h3>Recursive Neural Networks (TreeRNNs)</h3>
-                <p>The original "recursive" models in deep learning — networks that process tree-structured inputs by applying the same weights recursively at each node. Used for parsing and sentiment analysis (Socher et al., 2013). While less prominent today, the concept of shared-weight recursive computation lives on in transformers' repeated attention layers.</p>
-
-                <h3 class="mt-2">Transformer + Recursion</h3>
-                <p>Modern approaches layer recursion on top of transformers:</p>
-                <table>
-                    <tr><th>Approach</th><th>How Recursion Works</th><th>Example</th></tr>
-                    <tr><td>Chain-of-Thought</td><td>Model generates reasoning steps, each conditioned on previous steps</td><td>OpenAI o1/o3, DeepSeek-R1</td></tr>
-                    <tr><td>Self-Consistency</td><td>Sample multiple reasoning paths, aggregate via majority vote</td><td>Wang et al. 2022</td></tr>
-                    <tr><td>RLM Framework</td><td>LLM writes code to decompose input, recursively calls itself on chunks</td><td>MIT CSAIL 2024</td></tr>
-                    <tr><td>Looped Transformers</td><td>Same transformer block applied iteratively, depth controlled at inference</td><td>Universal Transformers</td></tr>
-                </table>
-
-                <h3 class="mt-2">Agent Loops</h3>
-                <p>AI agents are fundamentally recursive: observe → think → act → observe. Each cycle feeds the output of the previous action back as context for the next decision. Systems like Voyager (Minecraft), SWE-Agent (coding), and AutoGPT all implement this recursive observe-act loop.</p>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="footer-links">
-            <a href="/">Home</a>
-            <a href="fundamentals.html">Fundamentals</a>
-            <a href="techniques.html">Techniques</a>
-            <a href="research.html">Research</a>
-            <a href="applications.html">Applications</a>
-            <a href="resources.html">Resources</a>
         </div>
-        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
-    </footer>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Section 4: Model collapse -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">The failure mode</span>
+                <h2>Model collapse and how to avoid it</h2>
+            </div>
+            <div>
+                <p>Train a model on its own outputs naively and you get model collapse -- a progressive narrowing of the output distribution until the model produces only a handful of stereotyped responses. Shumailov et al. (2023) showed this happens reliably when synthetic data replaces real data over generations.</p>
+                <p>The fix isn't to avoid recursion. It's to do it carefully:</p>
+                <p><strong>Keep real data in the mix.</strong> Don't replace human data entirely. Blend synthetic and real data in each training round. The real data anchors the distribution.</p>
+                <p><strong>Maintain diversity.</strong> Use high sampling temperatures during generation. Penalize repetition. Ensure the candidate pool is broad enough that filtering finds genuinely novel good outputs, not just slight variations of the same thing.</p>
+                <p><strong>Monitor distribution shift.</strong> Track entropy and diversity metrics across iterations. If the output distribution is narrowing, stop and diagnose.</p>
+                <p><strong>Use rejection sampling, not fine-tuning.</strong> Instead of always fine-tuning the base model, use the base model for generation and only accept outputs above a quality threshold. This preserves the base model's diversity.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Section 5: Taxonomy -->
+    <section class="section fade-in">
+        <h2>A taxonomy of recursive approaches</h2>
+        <p>Not all recursion is the same. Here's a rough map of the landscape:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Approach</th>
+                    <th>Loop structure</th>
+                    <th>Verifier</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Self-play</td>
+                    <td>Agent vs. agent</td>
+                    <td>Game outcome</td>
+                    <td>AlphaGo Zero</td>
+                </tr>
+                <tr>
+                    <td>Self-taught reasoning</td>
+                    <td>Generate rationales, filter by correctness</td>
+                    <td>Answer checker</td>
+                    <td>STaR (Zelikman et al.)</td>
+                </tr>
+                <tr>
+                    <td>RL from AI feedback</td>
+                    <td>Generate, score with AI judge</td>
+                    <td>Constitutional principles</td>
+                    <td>Anthropic's CAI</td>
+                </tr>
+                <tr>
+                    <td>Reward model bootstrapping</td>
+                    <td>Train reward model on own judgments</td>
+                    <td>Self-consistency</td>
+                    <td>Recursive reward modeling</td>
+                </tr>
+                <tr>
+                    <td>Distillation loops</td>
+                    <td>Large model teaches small, small feeds back</td>
+                    <td>Task performance</td>
+                    <td>DeepSeek-R1 distillation</td>
+                </tr>
+                <tr>
+                    <td>Evolutionary search</td>
+                    <td>Mutate, evaluate, select, repeat</td>
+                    <td>Fitness function</td>
+                    <td>AlphaEvolve</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Each of these is explored in detail on the <a href="techniques.html">techniques</a> page.</p>
+    </section>
+
+    <!-- Next -->
+    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
+        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="techniques.html" style="font-size: 1.1rem;">Techniques -- what's actually working</a></p>
+    </section>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
 </body>
 </html>

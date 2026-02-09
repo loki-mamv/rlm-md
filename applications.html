@@ -3,142 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Applications — rlm.md</title>
-    <meta name="description" content="Real-world applications of recursive learning models: coding agents, scientific discovery, game AI, alignment, and more.">
+    <title>Applications -- rlm.md</title>
+    <meta name="description" content="Where recursive learning is deployed: code generation, mathematics, drug discovery, robotics, and AI infrastructure optimization.">
     <link rel="canonical" href="https://rlm.md/applications.html">
-    <meta property="og:title" content="Applications — rlm.md">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <nav>
-            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
-            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                <li><a href="fundamentals.html">Fundamentals</a></li>
-                <li><a href="techniques.html">Techniques</a></li>
-                <li><a href="research.html">Research</a></li>
-                <li><a href="applications.html" class="active">Applications</a></li>
-                <li><a href="resources.html">Resources</a></li>
-            </ul>
-        </nav>
+
+<nav class="site-nav">
+    <a href="./" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="./">Home</a></li>
+        <li><a href="fundamentals.html">Fundamentals</a></li>
+        <li><a href="techniques.html">Techniques</a></li>
+        <li><a href="research.html">Research</a></li>
+        <li><a href="applications.html" class="active">Applications</a></li>
+        <li><a href="resources.html">Resources</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <header class="page-header fade-in">
+        <span class="hero-label">Applications</span>
+        <h1>Where it's already working</h1>
+        <p class="lead">Recursive learning isn't a research curiosity anymore. It's deployed, generating revenue, and solving problems that traditional ML couldn't touch. Here's where.</p>
     </header>
 
-    <main>
-        <section class="hero" style="padding:4rem 2rem 3rem">
-            <h1>Applications</h1>
-            <p>Where recursive learning models are being used in practice.</p>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Coding & Software Engineering</h2>
-                <div class="card-grid">
-                    <div class="card">
-                        <div class="card-icon">💻</div>
-                        <h3>AI Coding Agents</h3>
-                        <p>Tools like Claude Code, Cursor, and Devin use recursive loops: generate code → run tests → analyze errors → fix → repeat. Each iteration builds on the previous attempt's feedback.</p>
-                    </div>
-                    <div class="card">
-                        <div class="card-icon">🔧</div>
-                        <h3>SWE-Bench</h3>
-                        <p>AI systems that solve real GitHub issues use recursive exploration: read codebase → form hypothesis → implement fix → test → revise. Top systems achieve 50%+ on the benchmark through multi-step recursive reasoning.</p>
-                    </div>
+    <!-- Code -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Verification is easy</span>
+                <h2>Code generation</h2>
+            </div>
+            <div>
+                <p>Code is the ideal domain for recursive learning. Why? Because verification is automated. Tests pass or they don't. The code compiles or it doesn't. You have a perfect signal.</p>
+                <p>AlphaCode (DeepMind, 2022) used massive sampling -- generating millions of candidate solutions -- then clustering and filtering to select the best ones. It performed at the level of a median competitive programmer.</p>
+                <p>The newer generation goes further. Models like DeepSeek-Coder and Codestral use recursive RL to improve code quality iteratively. Generate solutions, run them against test suites, reinforce the approaches that work. Each iteration, the model writes tighter code.</p>
+                <p>The recursive element is most visible in agentic coding systems like Devin, Cursor, and Claude Code. These systems generate code, execute it, observe errors, fix them, and iterate. The loop runs at inference time -- each debugging cycle teaches the system (within the context window) what works for this specific problem.</p>
+                <div class="callout">
+                    <p>SWE-bench results tell the story: state-of-the-art agents now resolve 50%+ of real GitHub issues autonomously. A year ago, the best hit 15%. Recursive inference-time reasoning is the primary driver of that improvement.</p>
                 </div>
             </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Scientific Discovery</h2>
-                <div class="card-grid">
-                    <div class="card">
-                        <div class="card-icon">🔬</div>
-                        <h3>AI Scientist (Sakana AI)</h3>
-                        <p>Recursively generates hypotheses, designs experiments, runs them, analyzes results, and writes papers. Each cycle informs the next research direction. Cost: ~$15 per paper.</p>
-                    </div>
-                    <div class="card">
-                        <div class="card-icon">🧬</div>
-                        <h3>Drug Discovery</h3>
-                        <p>Recursive design-make-test-analyze cycles accelerated by AI. Models propose molecules, predict properties, simulate interactions, and refine candidates through iterative optimization.</p>
-                    </div>
-                    <div class="card">
-                        <div class="card-icon">🧮</div>
-                        <h3>Mathematics</h3>
-                        <p>AlphaProof (DeepMind) uses recursive self-play to prove mathematical theorems. Solved IMO-level problems by iteratively generating and verifying proof steps. FunSearch discovered new mathematical constructions via iterative LLM-guided search.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>AI Safety & Alignment</h2>
-                <div class="card-grid">
-                    <div class="card">
-                        <div class="card-icon">🛡️</div>
-                        <h3>Constitutional AI (Anthropic)</h3>
-                        <p>Claude is trained using recursive self-critique against a constitution. The model evaluates its own harmfulness, helpfulness, and honesty in a feedback loop — scaling alignment without proportional human effort.</p>
-                    </div>
-                    <div class="card">
-                        <div class="card-icon">⚖️</div>
-                        <h3>AI Debate</h3>
-                        <p>Two AI systems recursively argue for different positions while a human judges. The recursive debate structure helps surface the truth even when individual claims are hard to verify (Irving et al., 2018).</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Industry Players</h2>
-                <table>
-                    <tr><th>Company</th><th>Recursive Approach</th><th>Application</th></tr>
-                    <tr><td>OpenAI</td><td>o1/o3 recursive reasoning, automated AI researcher</td><td>General reasoning, AI R&D</td></tr>
-                    <tr><td>Anthropic</td><td>Constitutional AI (RLAIF), recursive self-critique</td><td>Alignment, safety</td></tr>
-                    <tr><td>DeepMind</td><td>AlphaZero self-play, AlphaProof, FunSearch</td><td>Games, math, science</td></tr>
-                    <tr><td>DeepSeek</td><td>R1: RL-driven emergent reasoning</td><td>Open-source reasoning</td></tr>
-                    <tr><td>Recursive AI</td><td>AI that builds better ML algorithms</td><td>Automated ML research</td></tr>
-                    <tr><td>Sakana AI</td><td>The AI Scientist</td><td>Automated scientific discovery</td></tr>
-                    <tr><td>Meta</td><td>Self-improving LLMs, self-play for reasoning</td><td>Open-source LLMs</td></tr>
-                </table>
-            </div>
-        </section>
-
-        <section>
-            <div class="container">
-                <h2>Emerging Applications</h2>
-                <div class="card-grid">
-                    <div class="card">
-                        <h4>🎮 Game AI</h4>
-                        <p>Beyond Go and chess: self-play is being applied to Diplomacy (CICERO), StarCraft, and open-world games. Recursive skill learning (Voyager) enables agents to build increasingly complex behaviors.</p>
-                    </div>
-                    <div class="card">
-                        <h4>📝 Long-Document Processing</h4>
-                        <p>MIT's RLM framework enables processing 10M+ token documents — entire codebases, legal corpora, medical records — through recursive decomposition. No retraining required.</p>
-                    </div>
-                    <div class="card">
-                        <h4>🤖 Robotics</h4>
-                        <p>Recursive sim-to-real transfer: train in simulation, deploy on robot, collect failure data, update simulation, retrain. Each cycle closes the reality gap further.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="footer-links">
-            <a href="/">Home</a>
-            <a href="fundamentals.html">Fundamentals</a>
-            <a href="techniques.html">Techniques</a>
-            <a href="research.html">Research</a>
-            <a href="applications.html">Applications</a>
-            <a href="resources.html">Resources</a>
         </div>
-        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
-    </footer>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Math -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Formal verification</span>
+                <h2>Mathematics and theorem proving</h2>
+            </div>
+            <div>
+                <p>AlphaProof (DeepMind, 2024) earned a silver medal at the International Mathematical Olympiad. It solved 4 of 6 problems, including one that only 5 human contestants solved.</p>
+                <p>The approach: train a model to generate candidate proofs in Lean 4 (a formal proof language), verify them automatically, and train on the successful proofs. The formal verifier guarantees correctness -- if Lean accepts the proof, it's valid. No ambiguity, no reward hacking.</p>
+                <p>This is recursive learning in its purest form. The model proposes, the verifier disposes, the survivors reproduce. Darwin would approve.</p>
+                <p>The broader impact: formal verification of software. If recursive learning can prove mathematical theorems, it can prove properties of code -- that a function never returns null, that a system never deadlocks, that a protocol is secure. Companies like Leanprover and Hoskinson Center are actively pursuing this.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Science -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Physical world</span>
+                <h2>Scientific discovery</h2>
+            </div>
+            <div>
+                <p>Drug discovery was an early win. AlphaFold 2 (DeepMind, 2020) didn't use recursive learning in the strict sense, but AlphaFold 3 and its successors increasingly do -- using model outputs to generate training data for the next round of structure prediction.</p>
+                <p>Materials science is following the same trajectory. Google's GNoME project used recursive active learning to discover 2.2 million new crystal structures -- generating candidate structures, simulating their properties, and training on the successful predictions to generate better candidates.</p>
+                <p>The pattern: anywhere you have a simulator (physics engine, molecular dynamics, climate model) that can verify predictions, recursive learning can accelerate discovery by orders of magnitude. The model proposes experiments; the simulator runs them; the model learns from the results.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- Robotics -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Embodied</span>
+                <h2>Robotics</h2>
+            </div>
+            <div>
+                <p>Sim-to-real transfer is recursive learning applied to the physical world. Train a policy in simulation (where you can run millions of episodes cheaply), transfer to a real robot, collect failure data, improve the simulation, retrain. Each cycle narrows the gap between sim and real.</p>
+                <p>OpenAI's early work with the Rubik's cube hand (2019) demonstrated this. More recently, Figure, 1X, and Physical Intelligence are using similar loops for general manipulation. The recursive element: real-world failures improve the simulator, which produces better training data, which produces better real-world behavior.</p>
+                <p>The bottleneck isn't the learning algorithm. It's the simulator fidelity. As physics engines get better (partly through AI -- recursive again), the sim-to-real gap shrinks, and the recursive loop spins faster.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- AI infra -->
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Meta-recursive</span>
+                <h2>AI improving AI</h2>
+            </div>
+            <div>
+                <p>This is the one that makes people nervous. And rightly so.</p>
+                <p>AlphaEvolve discovered better matrix multiplication algorithms for TPUs. That's AI improving the hardware efficiency of AI training. Google is using these optimizations in production.</p>
+                <p>AI is also increasingly used to design neural architectures, optimize hyperparameters, write training code, and debug training runs. The human ML engineer is still in the loop, but their role is shifting from "design the system" to "evaluate the system's proposals."</p>
+                <p>The recursive startup ecosystem (January 2026 NYT reporting): companies named literally "Recursive" and "Ricursive" are building systems whose explicit purpose is to improve AI without human involvement. Whether this is exciting or terrifying depends on your priors.</p>
+                <div class="callout-teal callout">
+                    <p>The honest assessment: we're in the early innings of meta-recursive improvement. Current systems improve specific components (kernels, architectures, data pipelines). We're not yet at "AI designs a fundamentally better AI from scratch." But the trajectory is clear, and it's accelerating.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
+        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="resources.html" style="font-size: 1.1rem;">Resources -- where to go from here</a></p>
+    </section>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
 </body>
 </html>
