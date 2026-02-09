@@ -142,6 +142,35 @@
         </div>
     </section>
 
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Framework support</span>
+                <h2>DSPy, Google ADK, and the ecosystem</h2>
+            </div>
+            <div>
+                <p>RLMs are already being adopted by major frameworks, which tells you something about how seriously the community is taking this.</p>
+                <p><strong>DSPy (v3.1.2+)</strong> -- Stanford's programmatic LLM framework has built-in RLM support. You can initialize an RLM with <code>dspy.RLM('articles, question -> trends: list[str]')</code> and it handles the REPL, sub-calls, and aggregation transparently. It supports using a smaller model for sub-calls via the <code>sub_lm</code> parameter to reduce costs.</p>
+                <p><strong>Google ADK</strong> -- Liam Connell (Google Cloud) published an enterprise-ready reimplementation of RLMs using Google's Agent Development Kit. The ADK version extends the original paper with two notable innovations: <strong>lazy file loading</strong> (the context object references files on disk or in GCS buckets rather than loading everything into memory) and <strong>parallelism</strong> (sub-calls can run concurrently rather than sequentially). The implementation pushed ADK's primitives to their limits -- the recursive nature required dropping down from LLMAgent to the bare-bones BaseAgent.</p>
+                <p><strong>Coding agents</strong> -- As several commentators have noted, tools like Claude Code and Gemini CLI already use sub-agent patterns that resemble RLMs. The difference is that these tools don't externalize the user prompt as a REPL variable, so they're still bounded by context limits on the input side. But the conceptual overlap suggests RLMs may become the default inference pattern for coding agents.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">The bitter lesson</span>
+                <h2>Why this is more than a hack</h2>
+            </div>
+            <div>
+                <p>Alex Zhang described RLMs as a "bitter-lesson-pilled approach" on X. The reference is to Rich Sutton's famous essay arguing that general methods leveraging computation always win over clever domain-specific tricks.</p>
+                <p>The insight Zhang emphasized: "LMs can often ignore most of their context for certain problems. LMs can more efficiently solve problems when only looking locally at certain parts of their input. The REPL environment provides a programmatic way for the model to peek at and infer long contexts without the model ever actually viewing it. It's a partially observable problem that you're giving the LM, where it can make logical decisions based on the structure of the task and context."</p>
+                <p>This framing matters. RLMs aren't a workaround for insufficient context windows. They're an argument that the model shouldn't see the full context in the first place -- that treating the input as a partially observable environment you interact with programmatically is fundamentally more expressive than attention over a flat token sequence.</p>
+            </div>
+        </div>
+    </section>
+
 </div>
 </div>
 
