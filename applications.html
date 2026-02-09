@@ -104,6 +104,22 @@
                 <p>RLMs are designed as a drop-in replacement for standard LLM completion calls. The API surface is identical: <code>rlm.completion(prompt, model)</code> instead of <code>llm.completion(prompt, model)</code>. This makes integration with existing agent frameworks straightforward.</p>
                 <p>The Google ADK (Agent Development Kit) community has already started discussing RLM integration for building agents that need to process long contexts. The pattern fits naturally: any ADK agent that currently hits context limits on long inputs could swap in an RLM completion call and immediately gain the ability to handle 10M+ token inputs.</p>
                 <p>The broader implication: as agent systems take on longer-horizon tasks (multi-day research, ongoing monitoring, large-scale analysis), the inputs they accumulate will routinely exceed any context window. RLMs provide the plumbing to handle this without rearchitecting the agent.</p>
+                <p>Liam Connell's ADK implementation also introduced <strong>lazy file loading</strong> -- instead of loading all context into memory, the RLM holds references to files on disk or in GCS/Sharepoint. The model calls methods to read metadata and contents on demand. This is a practical extension that makes RLMs viable for enterprise document stores where downloading everything upfront is impossible.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Task decomposition</span>
+                <h2>Not just context splitting -- reasoning delegation</h2>
+            </div>
+            <div>
+                <p>A subtlety that the community coverage has surfaced: RLMs don't just decompose context. They decompose <em>tasks</em>.</p>
+                <p>When an agent invokes sub_rlm(), it sets both the query (task definition) and the context that the child agent receives. This means RLMs can tackle reasoning problems that exceed a single model's capacity -- not because the input is too long, but because the reasoning chain itself is too complex for one context window.</p>
+                <p>As Liam Connell put it: "Modern LLMs reason by generating streams of text about the problem before coming to a final answer. This is inherently limited by context length. Eventually, there will be a problem that cannot be solved within the context limits of a single language model. Task decomposition via recursive delegation allows the agent to hand off tasks to other agents without burning its own precious reasoning tokens."</p>
+                <p>This opens up a second axis of scaling beyond context length: reasoning depth. The root model can delegate sub-problems that themselves require extended reasoning, each in their own fresh context window.</p>
             </div>
         </div>
     </section>
