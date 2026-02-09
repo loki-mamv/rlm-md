@@ -208,8 +208,9 @@ em { color: var(--text-muted); }
 /* --- Cards --- */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
   gap: 1.5rem;
+  max-width: 100%;
 }
 
 .card {
@@ -240,6 +241,7 @@ em { color: var(--text-muted); }
 .split {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
+  max-width: 100%;
   gap: 4rem;
   align-items: start;
 }
@@ -265,6 +267,9 @@ pre {
   line-height: 1.65;
   margin: 1.5rem 0;
   position: relative;
+  max-width: 100%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 pre .comment { color: #5a5668; }
