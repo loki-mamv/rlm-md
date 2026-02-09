@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fundamentals -- rlm.md</title>
-    <meta name="description" content="Core concepts of recursive learning: the generate-evaluate-filter-retrain loop, why recursive beats linear scaling, and the mathematical foundations.">
+    <title>Fundamentals -- How Recursive Language Models Work | rlm.md</title>
+    <meta name="description" content="The technical foundations of Recursive Language Models: the decompose-recurse-aggregate pattern, REPL environments, symbolic recursion, and why treating prompts as external variables changes everything.">
+    <meta name="keywords" content="recursive language models, RLM fundamentals, REPL environment, symbolic recursion, decompose recurse aggregate, long context processing">
     <link rel="canonical" href="https://rlm.md/fundamentals.html">
+    <meta property="og:title" content="Fundamentals -- How Recursive Language Models Work">
+    <meta property="og:description" content="The decompose-recurse-aggregate pattern that lets LLMs handle 10M+ token inputs.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -27,183 +30,115 @@
 <div class="page-body">
 <div class="container">
 
-    <header class="page-header fade-in">
+    <section class="hero fade-in">
         <span class="hero-label">Fundamentals</span>
-        <h1>The core loop</h1>
-        <p class="lead">Recursive learning isn't complicated. A system generates output, judges that output, keeps the good parts, and trains on them. Rinse, repeat, get smarter. The devil is in making this actually work.</p>
-    </header>
-
-    <!-- Section 1: The Loop -->
-    <section class="section fade-in">
-        <h2>Generate. Evaluate. Filter. Retrain.</h2>
-        <p>Every recursive learning system, no matter how sophisticated, reduces to four operations:</p>
-
-        <div class="card-grid" style="margin: 2rem 0;">
-            <div class="card">
-                <div class="card-number">GENERATE</div>
-                <h3>Produce candidates</h3>
-                <p>The model generates many possible outputs for a given input. Diversity matters -- you need the search space to contain something better than what you started with.</p>
-            </div>
-            <div class="card">
-                <div class="card-number">EVALUATE</div>
-                <h3>Score quality</h3>
-                <p>Something judges which outputs are good. This is the hard part. The judge can be a separate model, a reward function, a verifier, or the environment itself.</p>
-            </div>
-            <div class="card">
-                <div class="card-number">FILTER</div>
-                <h3>Keep the winners</h3>
-                <p>Discard the bad, keep the good. Sometimes this is binary (right/wrong). Sometimes it's a ranking. The filtering mechanism determines what the system learns to value.</p>
-            </div>
-            <div class="card">
-                <div class="card-number">RETRAIN</div>
-                <h3>Update the model</h3>
-                <p>Fine-tune on the filtered outputs. The model becomes slightly better at producing high-quality responses. Now loop back to step one.</p>
-            </div>
-        </div>
-
-        <p>This is self-play generalized. AlphaGo Zero played games against itself and kept the strategies that won. STaR generates rationales, keeps the ones that lead to correct answers, and trains on them. DeepSeek-R1 generates reasoning chains, scores them with reward functions, and updates via reinforcement learning.</p>
-        <p>Same loop. Different implementations.</p>
+        <h1>The prompt is not <span class="accent">an input</span>. It's an <span class="accent">environment</span>.</h1>
+        <p class="hero-sub">That single design decision is what separates RLMs from every other long-context approach. Instead of feeding a million tokens into a Transformer and hoping for the best, you load the prompt into a REPL as a variable and let the model write code to interact with it.</p>
     </section>
 
     <hr class="divider">
 
-    <!-- Section 2: Why recursive beats linear -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">The key insight</span>
-                <h2>Why recursive beats linear</h2>
+                <span class="split-label">The core insight</span>
+                <h2>Why shoving everything into context doesn't work</h2>
             </div>
             <div>
-                <p>Traditional machine learning is a one-shot deal. Collect data from humans, train, deploy, done. If you want a better model, you need better data, which means more human effort.</p>
-                <p>Recursive learning breaks this dependency. Each iteration produces training data for the next. The cost of improvement decouples from the cost of human annotation.</p>
-                <p>In formal terms: if a model at iteration <em>t</em> has capability <em>C(t)</em>, and each recursion improves capability by some factor, then:</p>
-                <pre><code><span class="comment">// Linear scaling (traditional)</span>
-C(t) = C(0) + k * human_effort(t)
-
-<span class="comment">// Recursive scaling</span>
-C(t+1) = f(C(t))  <span class="comment">// where f improves on its input</span></code></pre>
-                <p>The second equation is powerful because the input quality improves each round. If <em>f</em> consistently produces outputs better than its inputs -- even slightly -- the capability compounds.</p>
-                <p>This is why Silver et al.'s 2017 result was so striking. AlphaGo Zero started from random play and, through pure self-play, surpassed every human Go player and every previous AI system. No human game data at all. The recursive loop was sufficient.</p>
+                <p>Every LLM has a context window -- a maximum number of tokens it can process at once. The industry keeps making these bigger: 128K, 272K, 1M. But size isn't the issue. <strong>Quality</strong> is.</p>
+                <p>Even within their stated limits, models exhibit <em>context rot</em>: performance degrades as prompts get longer, especially on tasks that require reasoning over the entire input rather than just locating a specific fact. GPT-5 handles needle-in-a-haystack fine at 200K tokens. Ask it to aggregate information from every paragraph in a 200K-token document, and it falls apart.</p>
+                <p>The degradation gets worse as task complexity increases. Constant-complexity tasks (find one thing) survive longer contexts. Linear-complexity tasks (process every chunk) degrade faster. Quadratic-complexity tasks (reason about pairs of chunks) collapse almost immediately.</p>
+                <p>RLMs sidestep this entirely. The neural network never sees the full prompt. It only sees metadata about it -- length, a short prefix, type information -- and writes code to interact with it piece by piece.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Section 3: The verification problem -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">The hard part</span>
-                <h2>Verification is everything</h2>
+                <span class="split-label">The architecture</span>
+                <h2>How an RLM actually works</h2>
             </div>
             <div>
-                <p>Recursive learning only works if the evaluation step is reliable. If your judge is broken, you'll train on garbage and compound the errors.</p>
-                <p>This is why recursive learning has succeeded first in domains with clear verification:</p>
-                <ul style="margin: 1rem 0 1.5rem 1.5rem; color: var(--text-muted);">
-                    <li style="margin-bottom:0.5rem;"><strong>Games</strong> -- you win or you lose</li>
-                    <li style="margin-bottom:0.5rem;"><strong>Mathematics</strong> -- proofs are checkable</li>
-                    <li style="margin-bottom:0.5rem;"><strong>Code</strong> -- tests pass or they don't</li>
-                    <li style="margin-bottom:0.5rem;"><strong>Formal logic</strong> -- statements are valid or invalid</li>
-                </ul>
-                <p>Open-ended domains like creative writing or ethical reasoning are harder. There's no compiler for "is this a good essay." This is exactly why techniques like RLHF and constitutional AI exist -- they're attempts to build reliable verifiers for fuzzy domains.</p>
-                <div class="callout" style="margin-top: 2rem;">
-                    <p>The dirty secret of recursive learning: the ceiling on improvement is set by the quality of your verifier, not the capability of your generator. Invest in verification.</p>
-                </div>
+                <p>An RLM wraps any base language model with an inference-time scaffold. The flow:</p>
+                <ol>
+                    <li><strong>Initialize a REPL.</strong> Given an arbitrary-length prompt P, the RLM starts a persistent programming environment (Python REPL). P is stored as a string variable inside this environment. The model also gets a function for invoking sub-RLM calls.</li>
+                    <li><strong>Provide metadata, not content.</strong> The root model receives only constant-size metadata about P: its length, a short prefix, how to access slices of it. The full text of P never enters the model's context window.</li>
+                    <li><strong>Model writes code.</strong> The model generates code that peeks into P, slices it, transforms it, and launches sub-RLM calls on the slices. These sub-calls are themselves full RLMs that can recurse further.</li>
+                    <li><strong>Execute and observe.</strong> The REPL runs the code, updates state, and returns only metadata about stdout back to the model. Intermediate results live as variables in the REPL, not in the model's context.</li>
+                    <li><strong>Aggregate and return.</strong> When the model sets a special "Final" variable in the REPL, iteration stops and that value becomes the response.</li>
+                </ol>
+                <p>The key: at every level of recursion, the model's context window only contains constant-size turns. All the heavy data lives in REPL variables. This is what makes unbounded input processing possible.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
+    <!-- Visual diagram using CSS -->
+    <section class="section fade-in">
+        <span class="split-label">Visualized</span>
+        <h2>The recursive call pattern</h2>
+        <div style="margin-top: 2rem; padding: 2rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt, rgba(255,255,255,0.02)); font-family: monospace; font-size: 0.85rem; line-height: 1.8; overflow-x: auto;">
+<pre style="margin:0; color: var(--text);">
+User Prompt P (e.g., 10M tokens)
+    |
+    v
+[RLM Root] -- sees: len(P)=10M, P[:200]="The first..."
+    |
+    |-- writes: chunks = [P[i:i+8000] for i in range(0, len(P), 8000)]
+    |-- writes: results = [sub_rlm(f"Summarize: {c}") for c in chunks]
+    |                         |
+    |                         +--[Sub-RLM 1] processes chunk 1 (8K tokens)
+    |                         +--[Sub-RLM 2] processes chunk 2 (8K tokens)
+    |                         +--[Sub-RLM 3] processes chunk 3 (8K tokens)
+    |                         +-- ... (1,250 sub-calls for 10M tokens)
+    |
+    |-- writes: combined = "\n".join(results)
+    |-- writes: Final = sub_rlm(f"Given these summaries: {combined}, answer: ...")
+    |
+    v
+Response Y
+</pre>
+        </div>
+        <p style="margin-top: 1rem; color: var(--text-dim); font-size: 0.85rem;">Each sub-RLM is itself a full RLM that can recurse further if its input is still too large. The recursion bottoms out when chunks fit comfortably in the base model's context window.</p>
+    </section>
 
-    <!-- Section 4: Model collapse -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">The failure mode</span>
-                <h2>Model collapse and how to avoid it</h2>
+                <span class="split-label">Three design choices</span>
+                <h2>What makes RLMs different from "just using agents"</h2>
             </div>
             <div>
-                <p>Train a model on its own outputs naively and you get model collapse -- a progressive narrowing of the output distribution until the model produces only a handful of stereotyped responses. Shumailov et al. (2023) showed this happens reliably when synthetic data replaces real data over generations.</p>
-                <p>The fix isn't to avoid recursion. It's to do it carefully:</p>
-                <p><strong>Keep real data in the mix.</strong> Don't replace human data entirely. Blend synthetic and real data in each training round. The real data anchors the distribution.</p>
-                <p><strong>Maintain diversity.</strong> Use high sampling temperatures during generation. Penalize repetition. Ensure the candidate pool is broad enough that filtering finds genuinely novel good outputs, not just slight variations of the same thing.</p>
-                <p><strong>Monitor distribution shift.</strong> Track entropy and diversity metrics across iterations. If the output distribution is narrowing, stop and diagnose.</p>
-                <p><strong>Use rejection sampling, not fine-tuning.</strong> Instead of always fine-tuning the base model, use the base model for generation and only accept outputs above a quality threshold. This preserves the base model's diversity.</p>
+                <p>The paper identifies three specific design decisions that separate RLMs from existing agent scaffolds:</p>
+                <p><strong>1. The prompt is a variable, not context.</strong> Coding agents and retrieval agents put the user prompt directly into the LLM's context window. An RLM stores it externally. This sounds trivial but it's the entire game -- it means the model is never bounded by its context window with respect to user input.</p>
+                <p><strong>2. Output is symbolic, not autoregressive.</strong> Standard scaffolds ask the model to generate its final answer token-by-token into the context window, which means outputs are also bounded by the window. RLMs build up the response in REPL variables, enabling unbounded output length.</p>
+                <p><strong>3. Recursion is programmatic, not verbal.</strong> Previous self-delegation approaches (like Anthropic's sub-agent patterns) let models invoke themselves, but the sub-calls are generated autoregressively -- one at a time, limited by output length. RLMs write <em>programs</em> that launch sub-calls inside loops, enabling the model to invoke itself O(|P|) or even O(|P|^2) times through a few lines of code.</p>
+                <p>Point 3 is the killer. A standard agent might verbalize "now process chunk 1... now process chunk 2..." and run out of context after a dozen chunks. An RLM writes <code>for chunk in chunks: results.append(sub_rlm(chunk))</code> and processes thousands.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Section 5: Taxonomy -->
     <section class="section fade-in">
-        <h2>A taxonomy of recursive approaches</h2>
-        <p>Not all recursion is the same. Here's a rough map of the landscape:</p>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Approach</th>
-                    <th>Loop structure</th>
-                    <th>Verifier</th>
-                    <th>Example</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Self-play</td>
-                    <td>Agent vs. agent</td>
-                    <td>Game outcome</td>
-                    <td>AlphaGo Zero</td>
-                </tr>
-                <tr>
-                    <td>Self-taught reasoning</td>
-                    <td>Generate rationales, filter by correctness</td>
-                    <td>Answer checker</td>
-                    <td>STaR (Zelikman et al.)</td>
-                </tr>
-                <tr>
-                    <td>RL from AI feedback</td>
-                    <td>Generate, score with AI judge</td>
-                    <td>Constitutional principles</td>
-                    <td>Anthropic's CAI</td>
-                </tr>
-                <tr>
-                    <td>Reward model bootstrapping</td>
-                    <td>Train reward model on own judgments</td>
-                    <td>Self-consistency</td>
-                    <td>Recursive reward modeling</td>
-                </tr>
-                <tr>
-                    <td>Distillation loops</td>
-                    <td>Large model teaches small, small feeds back</td>
-                    <td>Task performance</td>
-                    <td>DeepSeek-R1 distillation</td>
-                </tr>
-                <tr>
-                    <td>Evolutionary search</td>
-                    <td>Mutate, evaluate, select, repeat</td>
-                    <td>Fitness function</td>
-                    <td>AlphaEvolve</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <p>Each of these is explored in detail on the <a href="techniques.html">techniques</a> page.</p>
-    </section>
-
-    <!-- Next -->
-    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
-        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="techniques.html" style="font-size: 1.1rem;">Techniques -- what's actually working</a></p>
+        <div class="split">
+            <div>
+                <span class="split-label">Complexity classes</span>
+                <h2>Constant, linear, quadratic -- and why it matters</h2>
+            </div>
+            <div>
+                <p>Not all long-context tasks are created equal. The paper categorizes them by how processing complexity scales with input length:</p>
+                <p><strong>Constant complexity</strong> -- tasks like needle-in-a-haystack where you're looking for one thing regardless of input size. Frontier models handle these reasonably well even at long contexts. RLMs help but the gap is smaller.</p>
+                <p><strong>Linear complexity</strong> -- tasks like OOLONG where the answer depends on processing every chunk of the input. These break standard models quickly. RLMs with GPT-5 outperform vanilla GPT-5 by 28.4% here.</p>
+                <p><strong>Quadratic complexity</strong> -- tasks like OOLONG-Pairs where you need to reason about <em>pairs</em> of chunks. Vanilla GPT-5 scores below 0.1% F1. RLM(GPT-5) scores 58% F1. The gap is comical.</p>
+                <p>This hierarchy is the real insight. Context windows aren't just too small -- they're the wrong abstraction for information-dense tasks. No amount of window expansion will help a model that needs to do O(n^2) semantic work in a single forward pass.</p>
+            </div>
+        </div>
     </section>
 
 </div>
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
 </footer>
 
 <script>
