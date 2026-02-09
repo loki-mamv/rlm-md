@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Techniques -- rlm.md</title>
-    <meta name="description" content="Current recursive learning techniques: self-play, RLHF, constitutional AI, STaR, chain-of-thought distillation, test-time compute scaling, and more.">
+    <title>Techniques -- RLM Implementation Details | rlm.md</title>
+    <meta name="description" content="How Recursive Language Models are implemented: REPL environments, decomposition strategies, sub-call patterns, post-training RLM-Qwen3-8B, and comparison with RAG, sliding window, and context compaction.">
+    <meta name="keywords" content="RLM techniques, REPL environment, sub-call patterns, RLM-Qwen3-8B training, RAG comparison, context compaction, long context methods">
     <link rel="canonical" href="https://rlm.md/techniques.html">
+    <meta property="og:title" content="Techniques -- RLM Implementation Details">
+    <meta property="og:description" content="Decomposition strategies, REPL environments, post-training, and how RLMs compare to RAG and sliding windows.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -27,193 +30,123 @@
 <div class="page-body">
 <div class="container">
 
-    <header class="page-header fade-in">
+    <section class="hero fade-in">
         <span class="hero-label">Techniques</span>
-        <h1>What's actually working</h1>
-        <p class="lead">A survey of recursive learning techniques that have moved from papers to production. Ordered roughly by maturity -- battle-tested first, experimental last.</p>
-    </header>
-
-    <!-- Self-Play -->
-    <section class="section fade-in">
-        <div class="split">
-            <div>
-                <span class="split-label">Proven</span>
-                <h2>Self-play</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">games</span>
-                    <span class="tag">deployed</span>
-                </div>
-            </div>
-            <div>
-                <p>The OG recursive technique. Two copies of the same model play against each other. The winner's strategy gets reinforced. Over thousands of iterations, the system develops capabilities that no human demonstrated.</p>
-                <p>AlphaGo Zero (Silver et al., 2017) is the canonical example. Starting from random play -- literally random -- it surpassed the strongest human Go players in 40 days. No human game data. No handcrafted features. Just the rules of Go and a lot of compute.</p>
-                <p>The insight that generalized: <strong>if you have a reliable outcome signal, you don't need human demonstrations.</strong> The model discovers strategies humans never considered. Move 37 in AlphaGo's famous game against Lee Sedol was so unusual that commentators initially thought it was an error.</p>
-                <pre><code><span class="comment"># Simplified self-play loop</span>
-<span class="keyword">for</span> iteration <span class="keyword">in</span> <span class="function">range</span>(<span class="number">10000</span>):
-    game = <span class="function">play_game</span>(model_v_current, model_v_current)
-    winner_moves = game.moves[game.winner]
-    model_v_next = <span class="function">train</span>(model_v_current, winner_moves)
-    <span class="keyword">if</span> <span class="function">evaluate</span>(model_v_next) > <span class="function">evaluate</span>(model_v_current):
-        model_v_current = model_v_next</code></pre>
-                <p>Limitations: requires a well-defined game with clear win conditions. Doesn't directly apply to open-ended generation. But the principle -- compete against yourself, keep what works -- echoes through everything that follows.</p>
-            </div>
-        </div>
+        <h1>The engineering behind <span class="accent">symbolic recursion</span></h1>
+        <p class="hero-sub">RLMs are a simple idea with nuanced implementation. This page covers the specific techniques: how the REPL works, what decomposition strategies the model uses, how sub-calls are structured, and how RLM-Qwen3-8B was trained on just 1,000 samples.</p>
     </section>
 
     <hr class="divider">
 
-    <!-- RLHF -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Deployed at scale</span>
-                <h2>RLHF</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">alignment</span>
-                    <span class="tag">production</span>
-                </div>
+                <span class="split-label">The REPL</span>
+                <h2>Programmatic examination</h2>
             </div>
             <div>
-                <p>Reinforcement Learning from Human Feedback. The technique that made ChatGPT possible. Semi-recursive: humans provide preference data, a reward model learns from those preferences, then the language model optimizes against the reward model.</p>
-                <p>The recursive part: once you have a reward model, you can generate massive amounts of synthetic preference data without additional human input. The reward model scores, the policy model improves, the reward model gets retrained on the improved outputs. Each round, the bar rises.</p>
-                <p>Ouyang et al. (2022) at OpenAI showed that RLHF could take a base language model and make it dramatically more helpful, honest, and harmless -- with relatively little human feedback (tens of thousands of comparisons, not millions of examples).</p>
-                <p>The catch: reward hacking. The policy model learns to exploit quirks in the reward model rather than actually getting better. This is why Anthropic moved toward constitutional AI -- a way to make the evaluation step more robust.</p>
+                <p>The REPL (Read-Eval-Print Loop) is where the magic happens. When an RLM receives a prompt P, it initializes a persistent Python environment with:</p>
+                <ul>
+                    <li><strong>P as a string variable</strong> -- the full prompt text, accessible by indexing/slicing</li>
+                    <li><strong>A sub_rlm() function</strong> -- invokes a fresh RLM on any string, returns the response</li>
+                    <li><strong>Standard Python</strong> -- loops, string operations, data structures, everything you'd expect</li>
+                </ul>
+                <p>The model then generates code in iterative turns. Each turn: write code, execute it, observe metadata about the result (not the full stdout -- just its length and a prefix). This forces the model to keep heavy data in REPL variables rather than polluting its own context window.</p>
+                <p>If each turn is trimmed to c tokens, you get at most K/c root iterations (where K is the context window), each of which can launch arbitrarily many sub-calls. In practice, the model self-terminates by setting a "Final" variable when it has its answer.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Constitutional AI -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Fully recursive</span>
-                <h2>Constitutional AI</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">alignment</span>
-                    <span class="tag">self-evaluation</span>
-                </div>
+                <span class="split-label">Decomposition</span>
+                <h2>How models slice their inputs</h2>
             </div>
             <div>
-                <p>Anthropic's key contribution. Instead of having humans label every preference pair, give the model a set of principles (a "constitution") and let it judge its own outputs against those principles.</p>
-                <p>The loop: generate a response, critique it according to the constitution, revise it, then train on the revised version. The model is simultaneously the generator, the critic, and the student.</p>
-                <p>Bai et al. (2022) showed this produces models that are competitive with RLHF on helpfulness while being significantly less harmful -- and it requires far less human annotation. The constitution provides the compass; the model does the navigation.</p>
-                <blockquote>The interesting thing about constitutional AI is that it's recursive all the way down. The model's ability to critique improves as its general capabilities improve. Better models are better judges of their own output.</blockquote>
-                <p>This creates a virtuous cycle, but also a risk: the model's blind spots in judgment become the system's blind spots in behavior. Which is why the constitution itself is designed by humans -- it's the last piece of human input in an otherwise self-supervised loop.</p>
+                <p>The model decides its own decomposition strategy. Nobody hardcodes chunk sizes or overlap windows. The model examines metadata about P (length, prefix, type) and writes appropriate slicing code. Common patterns observed in the paper:</p>
+                <p><strong>Fixed-size chunking</strong> -- the simplest approach. Split P into N-token chunks, process each with a sub-RLM, aggregate results. Used for straightforward aggregation tasks.</p>
+                <p><strong>Semantic chunking</strong> -- the model peeks at P to find natural boundaries (document separators, paragraph breaks, function definitions in code) and splits on those.</p>
+                <p><strong>Hierarchical decomposition</strong> -- for tasks requiring deep reasoning, the model might first chunk at a coarse level (documents), then have sub-RLMs further decompose within each document. True recursion, not just one level of delegation.</p>
+                <p><strong>Targeted probing</strong> -- for search-like tasks, the model might use BM25-style keyword matching in the REPL to identify relevant sections, then only launch sub-RLMs on those sections. This is why RLMs can be <em>cheaper</em> than base model calls -- selective context access.</p>
+                <p>The key difference from RAG or sliding-window approaches: the model is in control. It writes the decomposition logic itself, adapting to the specific task and input structure. No one-size-fits-all chunking strategy imposed from outside.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- STaR -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Reasoning</span>
-                <h2>STaR and self-taught reasoning</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">reasoning</span>
-                    <span class="tag">bootstrapping</span>
-                </div>
+                <span class="split-label">Sub-calls</span>
+                <h2>Recursive self-invocation</h2>
             </div>
             <div>
-                <p>Self-Taught Reasoner (Zelikman et al., 2022). Elegant idea: ask a model to solve problems with step-by-step reasoning. Keep only the rationales that led to correct answers. Fine-tune on those. Repeat.</p>
-                <p>The genius is in using the answer as a verifier for the reasoning. You don't need a separate judge -- if the final answer is right, the reasoning was probably useful. If it's wrong, discard everything.</p>
-                <pre><code><span class="comment"># STaR loop</span>
-<span class="keyword">for</span> round <span class="keyword">in</span> <span class="function">range</span>(N):
-    rationales = model.<span class="function">generate_with_reasoning</span>(problems)
-    correct = [r <span class="keyword">for</span> r <span class="keyword">in</span> rationales <span class="keyword">if</span> r.answer == r.ground_truth]
-    
-    <span class="comment"># Rationalization: retry failures with hints</span>
-    hints = [<span class="function">give_hint</span>(r) <span class="keyword">for</span> r <span class="keyword">in</span> rationales <span class="keyword">if</span> r.answer != r.ground_truth]
-    correct += [h <span class="keyword">for</span> h <span class="keyword">in</span> hints <span class="keyword">if</span> h.answer == h.ground_truth]
-    
-    model = <span class="function">finetune</span>(model, correct)</code></pre>
-                <p>The "rationalization" step is clever -- for problems the model got wrong, provide the correct answer and ask it to generate a rationale that arrives at that answer. This bootstraps reasoning ability on harder problems.</p>
-                <p>STaR demonstrated something important: <strong>you can bootstrap complex reasoning from simpler capabilities</strong>, as long as you have a way to verify correctness.</p>
+                <p>The sub_rlm() function is what gives RLMs their recursive power. When the root model writes:</p>
+                <div style="background: var(--bg-alt, rgba(255,255,255,0.02)); padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin: 1rem 0; border: 1px solid var(--border);">
+                    results = [sub_rlm(f"Classify this text: {chunk}") for chunk in chunks]
+                </div>
+                <p>Each sub_rlm() call spins up a fresh RLM instance. That instance gets its own REPL, its own context window, its own ability to recurse further. The sub-model can be the same model or a smaller/cheaper one.</p>
+                <p>In the paper's GPT-5 experiments, the root model is GPT-5 while sub-calls use GPT-5-mini -- striking a balance between capability and cost. For the Qwen3-Coder experiments, the same model is used throughout.</p>
+                <p>This is fundamentally different from autoregressive sub-agent delegation. When Anthropic's agent patterns or similar scaffolds "delegate" to a sub-agent, they verbalize the delegation in their output stream -- one sub-call per generated token sequence. An RLM writes a <em>for loop</em> that launches thousands of sub-calls through a few tokens of code. The semantic work scales with the program, not with the output length.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Test-time compute -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Inference-time</span>
-                <h2>Test-time compute scaling</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">reasoning</span>
-                    <span class="tag">o-series</span>
-                </div>
+                <span class="split-label">Post-training</span>
+                <h2>Making RLM-Qwen3-8B</h2>
             </div>
             <div>
-                <p>The big idea behind OpenAI's o1 and o3: instead of making the model bigger, let it think longer. Generate multiple reasoning chains at inference time, evaluate them, and pick the best one. More compute at test time, better answers.</p>
-                <p>This is recursive learning applied at inference rather than training. The model generates candidates, scores them (via self-consistency, verifiers, or reward models), and selects. No weight updates needed -- just more thinking.</p>
-                <p>Snell et al. (2024) showed that test-time compute scaling can be more efficient than training-time scaling for many tasks. A smaller model that "thinks harder" can outperform a larger model that answers immediately.</p>
-                <p>The connection to recursive learning: the models used for test-time scaling were themselves trained with recursive techniques (RLHF, self-play on reasoning tasks). It's recursion at two levels -- recursive training produces a model that then reasons recursively at inference.</p>
-                <div class="callout-teal callout">
-                    <p>DeepSeek-R1 combined both: recursive RL training to develop reasoning ability, then test-time chain-of-thought to deploy it. The result matched OpenAI's o1 on benchmarks -- at a fraction of the training cost.</p>
-                </div>
+                <p>The paper's most surprising result might be how little training it takes to make a model natively recursive.</p>
+                <p>RLM-Qwen3-8B was created by fine-tuning Qwen3-8B on just <strong>1,000 filtered trajectories</strong>. These trajectories were generated by running Qwen3-Coder-480B as an RLM with Qwen3-8B sub-calls on tasks from LongBenchPro -- so the training data shows what good RLM behavior looks like from a stronger model.</p>
+                <p>The clever insight: training a good sub-call model is roughly the same as training a good general-purpose reasoning model. You don't need to teach the model recursion at both levels simultaneously. Focus on teaching the root model how to manipulate the REPL and launch sub-calls effectively. The sub-call model just needs to be a competent reasoner, which smaller models already are.</p>
+                <p>The training domains were deliberately unrelated to the evaluation tasks. No overlap. Yet the model improved by a median of 28.3% across four benchmarks. The RLM scaffold is genuinely task-agnostic -- learning to be recursive in one domain transfers to others.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Chain-of-thought distillation -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Compression</span>
-                <h2>Chain-of-thought distillation</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">distillation</span>
-                    <span class="tag">efficiency</span>
-                </div>
+                <span class="split-label">Comparison</span>
+                <h2>RLMs vs everything else</h2>
             </div>
             <div>
-                <p>A large model reasons step by step and arrives at correct answers. A smaller model learns to replicate those reasoning chains. The small model gets the reasoning ability without the cost.</p>
-                <p>DeepSeek used this to create smaller distilled models from R1 -- the 7B and 14B parameter versions that retained much of the reasoning performance. The recursive element: the large model's reasoning was itself produced by recursive RL training. You're distilling the product of recursion.</p>
-                <p>This creates an interesting pipeline: recursive training produces reasoning ability in a large model, distillation compresses it into a small model, and the small model can then be used as a starting point for further recursive training. Each cycle produces a more capable compact model.</p>
+                <p><strong>vs RAG (Retrieval-Augmented Generation)</strong> -- RAG retrieves a fixed number of relevant chunks and feeds them to the model. Great for lookup tasks, terrible for aggregation. If the answer requires reasoning across every chunk in a corpus, RAG can't help you. RLMs can.</p>
+                <p><strong>vs Sliding Window / Context Compaction</strong> -- Summarization agents iteratively compress context as it fills up. This works okay for shallow tasks but presumes you can safely forget early details to make room for new ones. For dense reasoning tasks, that assumption is fatal. On BrowseComp-Plus, RLMs outperform the summarization baseline by over 29%.</p>
+                <p><strong>vs CodeAct / ReAct Agents</strong> -- These agents can execute code in a loop, but they put the user prompt directly into the model's context. They inherit all the limitations of the base model's context window. Adding BM25 retrieval helps for search tasks but doesn't address aggregation.</p>
+                <p><strong>vs CodeAct with Sub-calls</strong> -- The closest baseline. This gives the agent both code execution and the ability to invoke sub-LM calls. But because the prompt is in-context rather than in a variable, it still hits the wall on long inputs. The paper tests this ablation directly: on information-dense tasks, RLMs outperform by 10-59%.</p>
+                <p><strong>vs Bigger Context Windows</strong> -- This is the elephant in the room. Why not just wait for 10M-token context windows? Because context rot isn't a scaling problem. It's an attention problem. Bigger windows don't help if the model can't maintain quality across them. RLMs solve the quality problem, not the size problem.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Evolutionary approaches -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Experimental</span>
-                <h2>Evolutionary search</h2>
-                <div style="margin-top: 1rem;">
-                    <span class="tag">evolution</span>
-                    <span class="tag">meta-learning</span>
-                </div>
+                <span class="split-label">Environments</span>
+                <h2>Sandbox options</h2>
             </div>
             <div>
-                <p>Google DeepMind's AlphaEvolve (May 2025) uses LLMs as mutation operators in an evolutionary loop. Start with a program. Mutate it using an LLM. Evaluate the mutant. Keep improvements. Repeat.</p>
-                <p>The meta-recursive twist: AlphaEvolve discovered algorithms that improve the efficiency of AI training itself. It found a better matrix multiplication kernel for TPUs -- the hardware that trains the next generation of LLMs.</p>
-                <p>This is perhaps the clearest example of genuine recursive self-improvement: an AI system making the tools that make AI systems better.</p>
+                <p>The reference implementation supports multiple REPL environments:</p>
+                <ul>
+                    <li><strong>Local (default)</strong> -- Python exec in the same process. Fine for benchmarking and trusted inputs. Shares the host virtual environment.</li>
+                    <li><strong>Docker</strong> -- Runs the REPL in a Docker container for isolation. Uses python:3.11-slim by default.</li>
+                    <li><strong>Modal Sandboxes</strong> -- Cloud-based isolated execution via Modal. Full isolation from the host process.</li>
+                    <li><strong>Prime Intellect Sandboxes</strong> -- Another cloud sandbox option, currently in beta.</li>
+                </ul>
+                <p>For production use with untrusted inputs, isolated environments are non-negotiable -- the model is writing and executing arbitrary code. But for research and controlled settings, the local REPL is fast and simple.</p>
             </div>
         </div>
-    </section>
-
-    <!-- Next -->
-    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
-        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="research.html" style="font-size: 1.1rem;">Research -- the papers that matter</a></p>
     </section>
 
 </div>
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
 </footer>
 
 <script>
