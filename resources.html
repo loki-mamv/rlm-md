@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resources — rlm.md</title>
+    <meta name="description" content="Learning resources for recursive learning models: papers, courses, tools, and communities.">
+    <link rel="canonical" href="https://rlm.md/resources.html">
+    <meta property="og:title" content="Resources — rlm.md">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="fundamentals.html">Fundamentals</a></li>
+                <li><a href="techniques.html">Techniques</a></li>
+                <li><a href="research.html">Research</a></li>
+                <li><a href="applications.html">Applications</a></li>
+                <li><a href="resources.html" class="active">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" style="padding:4rem 2rem 3rem">
+            <h1>Resources</h1>
+            <p>Papers, courses, tools, and communities for learning about recursive learning models.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Essential Reading</h2>
+                <ul class="paper-list">
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a></div>
+                        <div class="paper-meta">Zhang et al., 2024 — The MIT CSAIL paper that defines the RLM framework</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2212.08073">Constitutional AI: Harmlessness from AI Feedback</a></div>
+                        <div class="paper-meta">Bai et al., 2022 — Anthropic's RLAIF approach</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2203.14465">STaR: Bootstrapping Reasoning With Reasoning</a></div>
+                        <div class="paper-meta">Zelikman et al., 2022 — Self-taught reasoning</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1: Incentivizing Reasoning via RL</a></div>
+                        <div class="paper-meta">DeepSeek AI, 2025 — Emergent recursive reasoning</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/1811.07871">Scalable Agent Alignment via Reward Modeling</a></div>
+                        <div class="paper-meta">Leike et al., 2018 — Recursive reward modeling</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://www.nature.com/articles/nature24270">Mastering Go without Human Knowledge</a></div>
+                        <div class="paper-meta">Silver et al., 2017 — AlphaGo Zero self-play</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2310.02421">STOP: Self-Taught Optimizer</a></div>
+                        <div class="paper-meta">Zelikman et al., 2024 — Recursive self-improvement via code</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2303.17651">Self-Refine: Iterative Refinement with Self-Feedback</a></div>
+                        <div class="paper-meta">Madaan et al., 2023 — Generate → Critique → Refine loop</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://arxiv.org/abs/2303.11366">Reflexion: Language Agents with Verbal Reinforcement Learning</a></div>
+                        <div class="paper-meta">Shinn et al., 2023 — Learning from failure via reflection</div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Courses & Tutorials</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Stanford CS224N: NLP with Deep Learning</h4>
+                        <p>Covers transformer architectures and recursive neural networks. Free lectures on YouTube. <a href="https://web.stanford.edu/class/cs224n/">stanford.edu</a></p>
+                    </div>
+                    <div class="card">
+                        <h4>Hugging Face RLHF Course</h4>
+                        <p>Practical tutorial on training language models with RLHF using TRL library. <a href="https://huggingface.co/learn">huggingface.co/learn</a></p>
+                    </div>
+                    <div class="card">
+                        <h4>David Silver's RL Course</h4>
+                        <p>Foundations of reinforcement learning including Bellman recursion and self-play. Free on YouTube. <a href="https://www.davidsilver.uk/teaching/">davidsilver.uk</a></p>
+                    </div>
+                    <div class="card">
+                        <h4>Towards Data Science: RLMs in Action</h4>
+                        <p>Practical implementation guide for building RLMs with DSPy. <a href="https://towardsdatascience.com/going-beyond-the-context-window-recursive-language-models-in-action/">towardsdatascience.com</a></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Tools & Libraries</h2>
+                <table>
+                    <tr><th>Tool</th><th>Purpose</th><th>Link</th></tr>
+                    <tr><td>DSPy</td><td>Framework for programming LLM pipelines; supports RLM-style recursive sub-calls</td><td><a href="https://github.com/stanfordnlp/dspy">GitHub</a></td></tr>
+                    <tr><td>TRL</td><td>Hugging Face library for RLHF, PPO, and DPO training</td><td><a href="https://github.com/huggingface/trl">GitHub</a></td></tr>
+                    <tr><td>LangChain / LangGraph</td><td>Build recursive agent loops with state management</td><td><a href="https://github.com/langchain-ai/langchain">GitHub</a></td></tr>
+                    <tr><td>OpenAI Evals</td><td>Evaluation framework for testing recursive reasoning</td><td><a href="https://github.com/openai/evals">GitHub</a></td></tr>
+                    <tr><td>vLLM</td><td>High-throughput inference engine for serving recursive LLM calls efficiently</td><td><a href="https://github.com/vllm-project/vllm">GitHub</a></td></tr>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Communities</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>r/MachineLearning</h4>
+                        <p>Active discussion of recursive learning papers and techniques. <a href="https://reddit.com/r/MachineLearning">reddit.com</a></p>
+                    </div>
+                    <div class="card">
+                        <h4>Alignment Forum</h4>
+                        <p>Deep discussion of recursive reward modeling and scalable oversight. <a href="https://www.alignmentforum.org/">alignmentforum.org</a></p>
+                    </div>
+                    <div class="card">
+                        <h4>Hugging Face Community</h4>
+                        <p>Practical implementation discussions. <a href="https://discuss.huggingface.co/">discuss.huggingface.co</a></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Further Reading</h2>
+                <ul class="paper-list">
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://www.infoq.com/news/2026/01/mit-recursive-lm/">MIT's Recursive Language Models Improve Performance on Long-Context Tasks</a></div>
+                        <div class="paper-meta">InfoQ, Jan 2026 — Accessible summary of the RLM paper</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://dev.to/gaodalie_ai/rlm-the-ultimate-evolution-of-ai-recursive-language-models-3h8o">RLM: The Ultimate Evolution of AI?</a></div>
+                        <div class="paper-meta">DEV Community — Developer-focused explainer</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title"><a href="https://en.wikipedia.org/wiki/Recursive_self-improvement">Recursive Self-Improvement (Wikipedia)</a></div>
+                        <div class="paper-meta">Overview of the concept and its history in AI</div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications — rlm.md</title>
+    <meta name="description" content="Real-world applications of recursive learning models: coding agents, scientific discovery, game AI, alignment, and more.">
+    <link rel="canonical" href="https://rlm.md/applications.html">
+    <meta property="og:title" content="Applications — rlm.md">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="fundamentals.html">Fundamentals</a></li>
+                <li><a href="techniques.html">Techniques</a></li>
+                <li><a href="research.html">Research</a></li>
+                <li><a href="applications.html" class="active">Applications</a></li>
+                <li><a href="resources.html">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" style="padding:4rem 2rem 3rem">
+            <h1>Applications</h1>
+            <p>Where recursive learning models are being used in practice.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Coding & Software Engineering</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon">💻</div>
+                        <h3>AI Coding Agents</h3>
+                        <p>Tools like Claude Code, Cursor, and Devin use recursive loops: generate code → run tests → analyze errors → fix → repeat. Each iteration builds on the previous attempt's feedback.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">🔧</div>
+                        <h3>SWE-Bench</h3>
+                        <p>AI systems that solve real GitHub issues use recursive exploration: read codebase → form hypothesis → implement fix → test → revise. Top systems achieve 50%+ on the benchmark through multi-step recursive reasoning.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Scientific Discovery</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon">🔬</div>
+                        <h3>AI Scientist (Sakana AI)</h3>
+                        <p>Recursively generates hypotheses, designs experiments, runs them, analyzes results, and writes papers. Each cycle informs the next research direction. Cost: ~$15 per paper.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">🧬</div>
+                        <h3>Drug Discovery</h3>
+                        <p>Recursive design-make-test-analyze cycles accelerated by AI. Models propose molecules, predict properties, simulate interactions, and refine candidates through iterative optimization.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">🧮</div>
+                        <h3>Mathematics</h3>
+                        <p>AlphaProof (DeepMind) uses recursive self-play to prove mathematical theorems. Solved IMO-level problems by iteratively generating and verifying proof steps. FunSearch discovered new mathematical constructions via iterative LLM-guided search.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>AI Safety & Alignment</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon">🛡️</div>
+                        <h3>Constitutional AI (Anthropic)</h3>
+                        <p>Claude is trained using recursive self-critique against a constitution. The model evaluates its own harmfulness, helpfulness, and honesty in a feedback loop — scaling alignment without proportional human effort.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">⚖️</div>
+                        <h3>AI Debate</h3>
+                        <p>Two AI systems recursively argue for different positions while a human judges. The recursive debate structure helps surface the truth even when individual claims are hard to verify (Irving et al., 2018).</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Industry Players</h2>
+                <table>
+                    <tr><th>Company</th><th>Recursive Approach</th><th>Application</th></tr>
+                    <tr><td>OpenAI</td><td>o1/o3 recursive reasoning, automated AI researcher</td><td>General reasoning, AI R&D</td></tr>
+                    <tr><td>Anthropic</td><td>Constitutional AI (RLAIF), recursive self-critique</td><td>Alignment, safety</td></tr>
+                    <tr><td>DeepMind</td><td>AlphaZero self-play, AlphaProof, FunSearch</td><td>Games, math, science</td></tr>
+                    <tr><td>DeepSeek</td><td>R1: RL-driven emergent reasoning</td><td>Open-source reasoning</td></tr>
+                    <tr><td>Recursive AI</td><td>AI that builds better ML algorithms</td><td>Automated ML research</td></tr>
+                    <tr><td>Sakana AI</td><td>The AI Scientist</td><td>Automated scientific discovery</td></tr>
+                    <tr><td>Meta</td><td>Self-improving LLMs, self-play for reasoning</td><td>Open-source LLMs</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Emerging Applications</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>🎮 Game AI</h4>
+                        <p>Beyond Go and chess: self-play is being applied to Diplomacy (CICERO), StarCraft, and open-world games. Recursive skill learning (Voyager) enables agents to build increasingly complex behaviors.</p>
+                    </div>
+                    <div class="card">
+                        <h4>📝 Long-Document Processing</h4>
+                        <p>MIT's RLM framework enables processing 10M+ token documents — entire codebases, legal corpora, medical records — through recursive decomposition. No retraining required.</p>
+                    </div>
+                    <div class="card">
+                        <h4>🤖 Robotics</h4>
+                        <p>Recursive sim-to-real transfer: train in simulation, deploy on robot, collect failure data, update simulation, retrain. Each cycle closes the reality gap further.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
+    </footer>
+</body>
+</html>

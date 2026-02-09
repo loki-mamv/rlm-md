@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techniques — rlm.md</title>
+    <meta name="description" content="Current recursive learning techniques: self-play, RLHF, Constitutional AI, recursive reward modeling, test-time compute, and chain-of-thought distillation.">
+    <link rel="canonical" href="https://rlm.md/techniques.html">
+    <meta property="og:title" content="Techniques — rlm.md">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="fundamentals.html">Fundamentals</a></li>
+                <li><a href="techniques.html" class="active">Techniques</a></li>
+                <li><a href="research.html">Research</a></li>
+                <li><a href="applications.html">Applications</a></li>
+                <li><a href="resources.html">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" style="padding:4rem 2rem 3rem">
+            <h1>Techniques</h1>
+            <p>The practical approaches powering recursive learning in modern AI systems.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Self-Play</h2>
+                <p class="lead">An agent improves by playing against itself, creating a recursive loop where each version trains against the previous one.</p>
+                <p><strong style="color:var(--accent-light)">AlphaGo → AlphaZero → MuZero:</strong> DeepMind's progression showed that self-play alone, without human game data, can achieve superhuman performance. AlphaZero learned chess, shogi, and Go from scratch through millions of self-play games.</p>
+                <p><strong style="color:var(--accent-light)">In LLMs:</strong> Self-play is now used for reasoning. Models generate candidate solutions, evaluate them, and train on the successful ones. This is the core of STaR (Self-Taught Reasoner) and its successors.</p>
+                <pre><span class="code-comment"># STaR: Self-Taught Reasoner (Zelikman et al., 2022)</span>
+<span class="code-keyword">for</span> epoch <span class="code-keyword">in</span> range(N):
+    rationales = model.generate_rationales(problems)
+    correct = filter(rationales, <span class="code-keyword">lambda</span> r: r.answer == gold)
+    <span class="code-comment"># Rationalization: retry failures with hint</span>
+    rationalized = model.generate_with_hint(
+        failed_problems, gold_answers
+    )
+    model.finetune(correct + rationalized)</pre>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>RLHF & Recursive Reward Modeling</h2>
+                <p class="lead">Reinforcement Learning from Human Feedback trains models using human preferences — but the recursive insight is using models to scale the feedback itself.</p>
+
+                <h3>The RLHF Pipeline</h3>
+                <p>1. <strong style="color:var(--accent-light)">Supervised Fine-Tuning:</strong> Train on human demonstrations<br>
+                2. <strong style="color:var(--accent-light)">Reward Model:</strong> Train a model to predict human preferences<br>
+                3. <strong style="color:var(--accent-light)">RL Optimization:</strong> Use PPO to optimize the policy against the reward model</p>
+
+                <h3 class="mt-2">Recursive Reward Modeling</h3>
+                <p>The key challenge: as AI systems become more capable, human evaluators can't reliably assess outputs. <strong style="color:var(--accent-light)">Recursive reward modeling</strong> (Leike et al., 2018) addresses this by decomposing evaluation tasks into simpler sub-tasks that humans can verify, with AI assistance at each level.</p>
+
+                <div class="diagram">
+                    <svg width="600" height="180" viewBox="0 0 600 180">
+                        <defs><marker id="arr2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a78bfa"/></marker></defs>
+                        <rect x="10" y="60" width="120" height="50" rx="6" fill="#1a1a2e" stroke="#7c3aed" stroke-width="1.5"/>
+                        <text x="70" y="90" fill="#e8e8f0" text-anchor="middle" font-size="13" font-family="Inter">Human judges</text>
+                        <text x="70" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter" dy="0">simple tasks</text>
+                        <line x1="130" y1="85" x2="170" y2="85" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr2)"/>
+                        <rect x="170" y="60" width="120" height="50" rx="6" fill="#1a1a2e" stroke="#a78bfa" stroke-width="1.5"/>
+                        <text x="230" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter">AI + Human</text>
+                        <text x="230" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter" dy="0">medium tasks</text>
+                        <line x1="290" y1="85" x2="330" y2="85" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr2)"/>
+                        <rect x="330" y="60" width="120" height="50" rx="6" fill="#1a1a2e" stroke="#06b6d4" stroke-width="1.5"/>
+                        <text x="390" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter">AI evaluates</text>
+                        <text x="390" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter" dy="0">complex tasks</text>
+                        <line x1="450" y1="85" x2="490" y2="85" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr2)"/>
+                        <rect x="490" y="60" width="100" height="50" rx="6" fill="#1a1a2e" stroke="#34d399" stroke-width="1.5"/>
+                        <text x="540" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter">Superhuman</text>
+                        <text x="540" y="90" fill="#e8e8f0" text-anchor="middle" font-size="12" font-family="Inter" dy="0">evaluation</text>
+                        <text x="300" y="150" fill="#a78bfa" text-anchor="middle" font-size="12" font-family="Inter" font-style="italic">Each level bootstraps evaluation capability from the previous</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Constitutional AI (CAI)</h2>
+                <p class="lead">Anthropic's approach replaces human feedback with AI self-critique guided by explicit principles — a "constitution."</p>
+
+                <h3>How It Works</h3>
+                <p><strong style="color:var(--accent-light)">Stage 1 — Supervised Self-Critique:</strong> The model generates a response, then critiques it against constitutional principles, then revises. This critique→revise cycle can repeat multiple times.</p>
+                <p><strong style="color:var(--accent-light)">Stage 2 — RLAIF:</strong> Instead of humans labeling preferences, the AI itself judges which response better follows the constitution. These AI preferences train a reward model for RL fine-tuning.</p>
+
+                <pre><span class="code-comment"># Constitutional AI: recursive self-improvement</span>
+constitution = [
+    <span class="code-string">"Choose the response that is most helpful"</span>,
+    <span class="code-string">"Choose the response that is least harmful"</span>,
+    <span class="code-string">"Choose the response that is most honest"</span>,
+]
+
+<span class="code-keyword">for</span> prompt <span class="code-keyword">in</span> dataset:
+    response = model.generate(prompt)
+    <span class="code-keyword">for</span> principle <span class="code-keyword">in</span> constitution:
+        critique = model.critique(response, principle)
+        response = model.revise(response, critique)
+    <span class="code-comment"># Response is recursively refined</span></pre>
+
+                <p>The recursive insight: the model's own judgment (guided by principles) replaces human labelers, allowing alignment to scale without proportional human effort.</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Test-Time Compute & Recursive Reasoning</h2>
+                <p class="lead">Instead of making models bigger, make them think longer. Recursive reasoning at inference time is one of the biggest breakthroughs of 2024-2025.</p>
+
+                <h3>Chain-of-Thought (CoT)</h3>
+                <p>Models generate intermediate reasoning steps before the final answer. Each step is conditioned on all previous steps — an autoregressive form of recursion. Extended into "long thinking" by OpenAI o1 and DeepSeek-R1.</p>
+
+                <h3 class="mt-2">Tree Search & Verification</h3>
+                <p>Generate multiple reasoning paths (tree of thought), evaluate each branch, prune bad paths, and expand promising ones. The evaluator can be the model itself — recursive self-evaluation.</p>
+
+                <h3 class="mt-2">Chain-of-Thought Distillation</h3>
+                <p>A powerful recursive technique: a large model generates detailed reasoning traces, which are then used to train a smaller model. The student model's errors can feed back to generate harder training examples.</p>
+                <pre><span class="code-comment"># CoT Distillation loop</span>
+teacher = load_model(<span class="code-string">"large-reasoning-model"</span>)
+student = load_model(<span class="code-string">"small-model"</span>)
+
+<span class="code-keyword">for</span> round <span class="code-keyword">in</span> range(K):
+    traces = teacher.generate_reasoning(hard_problems)
+    student.train(traces)
+    <span class="code-comment"># Find where student still fails</span>
+    failures = evaluate(student, test_set)
+    hard_problems = generate_similar(failures)  <span class="code-comment"># Recursive curriculum</span></pre>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Iterative Self-Refinement</h2>
+                <p class="lead">Models that critique and refine their own outputs without any external signal.</p>
+
+                <h3>Self-Refine (Madaan et al., 2023)</h3>
+                <p>A single LLM acts as generator, critic, and refiner in a loop. Generate → Critique → Refine → repeat until quality threshold is met. No training, no reward model — just recursive prompting.</p>
+
+                <h3 class="mt-2">Reflexion (Shinn et al., 2023)</h3>
+                <p>Agents that maintain a memory of past failures and reflect on them before retrying. Each attempt builds on "verbal reinforcement" from previous attempts — a form of recursive learning through natural language feedback.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
+    </footer>
+</body>
+</html>

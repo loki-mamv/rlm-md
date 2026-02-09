@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fundamentals — rlm.md</title>
+    <meta name="description" content="Core concepts of Recursive Learning Models: mathematical foundations, key architectures, and what makes learning recursive.">
+    <link rel="canonical" href="https://rlm.md/fundamentals.html">
+    <meta property="og:title" content="Fundamentals — rlm.md">
+    <meta property="og:description" content="Core concepts of Recursive Learning Models: mathematical foundations, key architectures, and what makes learning recursive.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="fundamentals.html" class="active">Fundamentals</a></li>
+                <li><a href="techniques.html">Techniques</a></li>
+                <li><a href="research.html">Research</a></li>
+                <li><a href="applications.html">Applications</a></li>
+                <li><a href="resources.html">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" style="padding:4rem 2rem 3rem">
+            <h1>Fundamentals</h1>
+            <p>What makes learning "recursive," the mathematical foundations, and key architectural patterns.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>What Makes Learning Recursive?</h2>
+                <p class="lead">A learning system is <strong style="color:var(--accent-light)">recursive</strong> when its outputs feed back as inputs to the same (or similar) learning process. This creates a feedback loop where each iteration can build on previous results.</p>
+
+                <p>In traditional machine learning, the pipeline is linear: collect data → train model → deploy. In recursive learning, the model's own outputs become part of the training signal, creating iterative self-refinement.</p>
+
+                <h3 class="mt-2">Three Flavors of Recursion in AI</h3>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>1. Training-Time Recursion</h4>
+                        <p>The model generates data that is used to retrain itself. Examples: self-play in games (AlphaGo), synthetic data generation, iterative distillation. The model's weights change each cycle.</p>
+                        <pre><span class="code-comment"># Pseudocode: Self-play training loop</span>
+<span class="code-keyword">for</span> iteration <span class="code-keyword">in</span> range(N):
+    games = model.self_play(num_games=<span class="code-string">1000</span>)
+    model.train(games)  <span class="code-comment"># Output → Input</span></pre>
+                    </div>
+                    <div class="card">
+                        <h4>2. Inference-Time Recursion</h4>
+                        <p>The model reasons recursively at runtime without weight updates. Chain-of-thought, tree search, and MIT's RLM framework all use recursive inference to improve outputs.</p>
+                        <pre><span class="code-comment"># MIT RLM: Recursive sub-calls</span>
+<span class="code-keyword">def</span> <span class="code-func">rlm</span>(prompt, depth=<span class="code-string">0</span>):
+    <span class="code-keyword">if</span> fits_context(prompt):
+        <span class="code-keyword">return</span> llm(prompt)
+    chunks = decompose(prompt)
+    results = [rlm(c, depth+<span class="code-string">1</span>) <span class="code-keyword">for</span> c <span class="code-keyword">in</span> chunks]
+    <span class="code-keyword">return</span> llm(aggregate(results))</pre>
+                    </div>
+                    <div class="card">
+                        <h4>3. Alignment Recursion</h4>
+                        <p>Models evaluate and improve their own behavior against criteria. Constitutional AI critiques its own responses, RLHF trains reward models from model outputs, and recursive reward modeling chains evaluations.</p>
+                        <pre><span class="code-comment"># Constitutional AI self-critique</span>
+response = model.generate(prompt)
+critique = model.evaluate(
+    response,
+    principles=constitution
+)
+revised = model.revise(response, critique)</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Mathematical Foundations</h2>
+
+                <h3>Fixed-Point Iteration</h3>
+                <p>Many recursive learning processes can be understood as searching for a <strong style="color:var(--accent-light)">fixed point</strong> — a state where further iteration doesn't change the output. If <em>f</em> is the learning operator:</p>
+                <pre>x_{n+1} = f(x_n)    <span class="code-comment"># Iterate until x* = f(x*)</span></pre>
+                <p>Self-play converges when the agent can no longer improve against itself. RLHF converges when the policy maximizes the reward model. Chain-of-thought stops when the answer stabilizes.</p>
+
+                <h3 class="mt-2">Bellman Recursion (RL Foundation)</h3>
+                <p>Reinforcement learning is inherently recursive. The Bellman equation defines value recursively:</p>
+                <pre>V(s) = max_a [ R(s,a) + γ · V(s') ]   <span class="code-comment"># Value depends on future values</span></pre>
+                <p>This recursive structure is the mathematical backbone of RLHF, PPO, and all RL-based training of language models.</p>
+
+                <h3 class="mt-2">Recursive Decomposition</h3>
+                <p>Divide-and-conquer applied to reasoning. MIT's RLM framework formalizes this: a problem P is decomposed into sub-problems P₁...Pₖ, each solved recursively, then aggregated:</p>
+                <pre>RLM(P) = Aggregate( RLM(P₁), RLM(P₂), ..., RLM(Pₖ) )    <span class="code-comment"># if |P| > context</span>
+RLM(P) = LLM(P)                                           <span class="code-comment"># base case</span></pre>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Key Architectures</h2>
+
+                <h3>Recursive Neural Networks (TreeRNNs)</h3>
+                <p>The original "recursive" models in deep learning — networks that process tree-structured inputs by applying the same weights recursively at each node. Used for parsing and sentiment analysis (Socher et al., 2013). While less prominent today, the concept of shared-weight recursive computation lives on in transformers' repeated attention layers.</p>
+
+                <h3 class="mt-2">Transformer + Recursion</h3>
+                <p>Modern approaches layer recursion on top of transformers:</p>
+                <table>
+                    <tr><th>Approach</th><th>How Recursion Works</th><th>Example</th></tr>
+                    <tr><td>Chain-of-Thought</td><td>Model generates reasoning steps, each conditioned on previous steps</td><td>OpenAI o1/o3, DeepSeek-R1</td></tr>
+                    <tr><td>Self-Consistency</td><td>Sample multiple reasoning paths, aggregate via majority vote</td><td>Wang et al. 2022</td></tr>
+                    <tr><td>RLM Framework</td><td>LLM writes code to decompose input, recursively calls itself on chunks</td><td>MIT CSAIL 2024</td></tr>
+                    <tr><td>Looped Transformers</td><td>Same transformer block applied iteratively, depth controlled at inference</td><td>Universal Transformers</td></tr>
+                </table>
+
+                <h3 class="mt-2">Agent Loops</h3>
+                <p>AI agents are fundamentally recursive: observe → think → act → observe. Each cycle feeds the output of the previous action back as context for the next decision. Systems like Voyager (Minecraft), SWE-Agent (coding), and AutoGPT all implement this recursive observe-act loop.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
+    </footer>
+</body>
+</html>

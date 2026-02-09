@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rlm.md — Recursive Learning Models</title>
+    <meta name="description" content="The definitive educational resource on Recursive Learning Models (RLMs). Understand how AI systems learn from their own outputs, self-improve, and reason recursively.">
+    <meta name="keywords" content="recursive learning models, RLM, recursive language models, self-improving AI, recursive reasoning, test-time compute, RLHF, constitutional AI">
+    <link rel="canonical" href="https://rlm.md/">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rlm.md/">
+    <meta property="og:title" content="rlm.md — Recursive Learning Models">
+    <meta property="og:description" content="The definitive educational resource on Recursive Learning Models. How AI systems learn from their own outputs, self-improve, and reason recursively.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="rlm.md — Recursive Learning Models">
+    <meta name="twitter:description" content="The definitive educational resource on Recursive Learning Models.">
+    <!-- GA4: Replace G-XXXXXXXXXX with your Measurement ID -->
+    <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-XXXXXXXXXX');</script> -->
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"WebSite","url":"https://rlm.md","name":"rlm.md — Recursive Learning Models","description":"Educational resource on Recursive Learning Models, recursive reasoning, and self-improving AI systems."}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="fundamentals.html">Fundamentals</a></li>
+                <li><a href="techniques.html">Techniques</a></li>
+                <li><a href="research.html">Research</a></li>
+                <li><a href="applications.html">Applications</a></li>
+                <li><a href="resources.html">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-badge">🔄 The Future of AI Reasoning</div>
+            <h1>Recursive Learning Models</h1>
+            <p>AI systems that learn from their own outputs, reason recursively, and self-improve. From MIT's RLM framework to Constitutional AI — understand the paradigm shift reshaping artificial intelligence.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>What Are Recursive Learning Models?</h2>
+                <p class="lead">Recursive Learning Models (RLMs) represent a broad class of AI systems where the model's own outputs become inputs for further learning, reasoning, or self-improvement. Rather than processing information in a single pass, these systems iteratively refine their understanding.</p>
+
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon">🔄</div>
+                        <h3>Recursive Reasoning</h3>
+                        <p>Models that decompose complex problems into sub-problems, solving each recursively — like MIT's RLM framework that processes 10M+ tokens by recursively calling itself on chunks.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">🧠</div>
+                        <h3>Self-Improvement</h3>
+                        <p>Systems that learn from their own outputs to get better over time. Constitutional AI, RLHF, and self-play all use recursive feedback loops for alignment and capability gains.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">⚡</div>
+                        <h3>Test-Time Compute</h3>
+                        <p>Models that "think longer" at inference by iteratively refining answers — chain-of-thought, tree search, and recursive verification techniques that scale reasoning at runtime.</p>
+                    </div>
+                </div>
+
+                <div class="diagram">
+                    <svg width="700" height="200" viewBox="0 0 700 200">
+                        <defs>
+                            <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+                        </defs>
+                        <rect x="20" y="70" width="130" height="60" rx="8" fill="#1a1a2e" stroke="#7c3aed" stroke-width="2"/>
+                        <text x="85" y="105" fill="#e8e8f0" text-anchor="middle" font-family="Inter" font-size="14" font-weight="600">Input</text>
+                        <line x1="150" y1="100" x2="200" y2="100" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"/>
+                        <rect x="200" y="70" width="130" height="60" rx="8" fill="#1a1a2e" stroke="#a78bfa" stroke-width="2"/>
+                        <text x="265" y="105" fill="#e8e8f0" text-anchor="middle" font-family="Inter" font-size="14" font-weight="600">Model</text>
+                        <line x1="330" y1="100" x2="380" y2="100" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"/>
+                        <rect x="380" y="70" width="130" height="60" rx="8" fill="#1a1a2e" stroke="#06b6d4" stroke-width="2"/>
+                        <text x="445" y="105" fill="#e8e8f0" text-anchor="middle" font-family="Inter" font-size="14" font-weight="600">Output</text>
+                        <line x1="510" y1="100" x2="560" y2="100" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"/>
+                        <rect x="560" y="70" width="120" height="60" rx="8" fill="#1a1a2e" stroke="#34d399" stroke-width="2"/>
+                        <text x="620" y="105" fill="#e8e8f0" text-anchor="middle" font-family="Inter" font-size="14" font-weight="600">Evaluate</text>
+                        <path d="M620,130 Q620,170 445,170 Q265,170 265,130" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+                        <text x="445" y="190" fill="#a78bfa" text-anchor="middle" font-family="Inter" font-size="12" font-style="italic">Recursive feedback loop</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Why RLMs Matter</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Beyond Context Limits</h4>
+                        <p>MIT's RLM framework (2024) showed models can process 10M+ tokens — 100x beyond their context window — by recursively decomposing inputs through code. No retraining needed.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Scalable Alignment</h4>
+                        <p>Constitutional AI and RLAIF use recursive self-critique: models evaluate their own outputs against principles, generating preference data without human labelers at scale.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Recursive Self-Improvement</h4>
+                        <p>From OpenAI's automated AI researcher to Sakana AI's "AI Scientist," systems that recursively improve their own algorithms represent a potential path to accelerating AI progress.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Inference-Time Scaling</h4>
+                        <p>Models like OpenAI o1/o3 and DeepSeek-R1 show that recursive reasoning at inference time — thinking longer before answering — dramatically improves performance on hard problems.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Latest Developments</h2>
+                <ul class="paper-list">
+                    <li class="paper-item">
+                        <div class="paper-title">Recursive Language Models (MIT CSAIL, Dec 2024)</div>
+                        <div class="paper-meta">Zhang et al. — LLMs that recursively call themselves via Python REPL to process 10M+ tokens. Outperforms RAG and context compaction on long-context benchmarks. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Silicon Valley Races to Build Self-Improving AI (NYT, Jan 2026)</div>
+                        <div class="paper-meta">OpenAI's "automated AI researcher," Recursive AI (founded by Richard Socher), and others pursuing systems that recursively improve ML algorithms. <a href="https://www.nytimes.com/2026/01/26/technology/recursive-ai-ricursive.html">nytimes.com</a></div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">DeepSeek-R1: Recursive Reasoning via RL (Jan 2025)</div>
+                        <div class="paper-meta">Open-source model achieving frontier reasoning through pure reinforcement learning — emergent chain-of-thought without supervised fine-tuning.</div>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">STOP: Self-Taught Optimizer (2024)</div>
+                        <div class="paper-meta">A scaffolding program that recursively improves itself using a fixed LLM. Demonstrates recursive self-improvement without modifying model weights.</div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <div class="container text-center">
+                <h2>Explore the Guide</h2>
+                <p class="lead" style="margin:0 auto 2rem">Dive deep into the theory, techniques, and applications of Recursive Learning Models.</p>
+                <div class="card-grid">
+                    <a href="fundamentals.html" class="card" style="text-decoration:none">
+                        <h3>📐 Fundamentals</h3>
+                        <p>Mathematical foundations, core architectures, and what makes learning "recursive."</p>
+                    </a>
+                    <a href="techniques.html" class="card" style="text-decoration:none">
+                        <h3>🛠 Techniques</h3>
+                        <p>Self-play, RLHF, Constitutional AI, test-time compute, and chain-of-thought distillation.</p>
+                    </a>
+                    <a href="research.html" class="card" style="text-decoration:none">
+                        <h3>📄 Research</h3>
+                        <p>Key papers, breakthroughs, and the latest from leading labs.</p>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>rlm.md — An educational resource on Recursive Learning Models. Built for researchers, engineers, and the curious.</p>
+        <p style="margin-top:0.5rem">© 2026 rlm.md. Content is for educational purposes.</p>
+    </footer>
+</body>
+</html>

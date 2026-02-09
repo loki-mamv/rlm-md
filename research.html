@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research — rlm.md</title>
+    <meta name="description" content="Key papers and breakthroughs in recursive learning models, from MIT's RLM framework to DeepSeek-R1 and Constitutional AI.">
+    <link rel="canonical" href="https://rlm.md/research.html">
+    <meta property="og:title" content="Research — rlm.md">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%237c3aed' text-anchor='middle'%3E.md%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="nav-logo">rlm<span class="dot">.md</span></a>
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="fundamentals.html">Fundamentals</a></li>
+                <li><a href="techniques.html">Techniques</a></li>
+                <li><a href="research.html" class="active">Research</a></li>
+                <li><a href="applications.html">Applications</a></li>
+                <li><a href="resources.html">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" style="padding:4rem 2rem 3rem">
+            <h1>Research</h1>
+            <p>Foundational papers, recent breakthroughs, and the cutting edge of recursive learning.</p>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Landmark Papers</h2>
+                <ul class="paper-list">
+                    <li class="paper-item">
+                        <div class="paper-title">Recursive Language Models</div>
+                        <div class="paper-meta">Zhang, Amini, Vieira, & Andreas — MIT CSAIL, Dec 2024</div>
+                        <p>Proposes RLMs: LLMs that use a Python REPL to recursively decompose and process long inputs. Handles 10M+ tokens (100x context window) without retraining. Outperforms RAG and context compaction across long-context benchmarks.</p>
+                        <p><a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a> · <span class="tag">long-context</span> <span class="tag">inference</span> <span class="tag">recursion</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">STaR: Self-Taught Reasoner</div>
+                        <div class="paper-meta">Zelikman, Wu, Mu, & Goodman — Stanford, 2022</div>
+                        <p>Models bootstrap their own reasoning ability by generating rationales, filtering for correctness, and retraining. Demonstrates that LLMs can recursively improve their chain-of-thought reasoning without human-written rationales.</p>
+                        <p><a href="https://arxiv.org/abs/2203.14465">arxiv.org/abs/2203.14465</a> · <span class="tag">self-improvement</span> <span class="tag">reasoning</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Constitutional AI: Harmlessness from AI Feedback</div>
+                        <div class="paper-meta">Bai et al. — Anthropic, 2022</div>
+                        <p>Introduces RLAIF: using AI self-critique against a set of principles (constitution) to generate preference data for RL training. Reduces reliance on human feedback by making alignment recursive — the model evaluates itself.</p>
+                        <p><a href="https://arxiv.org/abs/2212.08073">arxiv.org/abs/2212.08073</a> · <span class="tag">alignment</span> <span class="tag">RLAIF</span> <span class="tag">safety</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Scalable agent alignment via reward modeling: a research direction</div>
+                        <div class="paper-meta">Leike et al. — DeepMind, 2018</div>
+                        <p>Proposes recursive reward modeling for aligning superhuman AI: decompose hard evaluation tasks into simpler ones, recursively building evaluation capability. Foundational for scalable oversight research.</p>
+                        <p><a href="https://arxiv.org/abs/1811.07871">arxiv.org/abs/1811.07871</a> · <span class="tag">alignment</span> <span class="tag">reward modeling</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Mastering the game of Go without human knowledge (AlphaGo Zero)</div>
+                        <div class="paper-meta">Silver et al. — DeepMind, 2017</div>
+                        <p>Pure self-play: starting from random play, the system recursively improved by playing against itself, achieving superhuman Go performance. No human game data used. The canonical example of recursive self-improvement through self-play.</p>
+                        <p><a href="https://www.nature.com/articles/nature24270">nature.com</a> · <span class="tag">self-play</span> <span class="tag">games</span> <span class="tag">RL</span></p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Recent Breakthroughs (2024-2026)</h2>
+                <ul class="paper-list">
+                    <li class="paper-item">
+                        <div class="paper-title">DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via RL</div>
+                        <div class="paper-meta">DeepSeek AI, Jan 2025</div>
+                        <p>Open-source model achieving frontier reasoning through pure reinforcement learning. Emergent chain-of-thought behavior without supervised fine-tuning — the model recursively discovers how to reason through RL alone.</p>
+                        <p><a href="https://arxiv.org/abs/2501.12948">arxiv.org/abs/2501.12948</a> · <span class="tag">reasoning</span> <span class="tag">RL</span> <span class="tag">open-source</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">OpenAI o1 / o3: Learning to Reason</div>
+                        <div class="paper-meta">OpenAI, 2024-2025</div>
+                        <p>Pioneered "thinking" models that use extended chain-of-thought at inference time. o1 and o3 demonstrate that test-time compute scaling — recursive reasoning at inference — can match or exceed training-time scaling for complex tasks.</p>
+                        <p><span class="tag">test-time compute</span> <span class="tag">reasoning</span> <span class="tag">inference scaling</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">STOP: Self-Taught Optimizer</div>
+                        <div class="paper-meta">Zelikman et al., 2024</div>
+                        <p>A scaffolding program that recursively improves its own code using a fixed LLM. The program modifies itself to better solve optimization problems, demonstrating recursive self-improvement without changing model weights.</p>
+                        <p><a href="https://arxiv.org/abs/2310.02421">arxiv.org/abs/2310.02421</a> · <span class="tag">self-improvement</span> <span class="tag">meta-learning</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery</div>
+                        <div class="paper-meta">Lu, Lu, et al. — Sakana AI, 2024</div>
+                        <p>An AI system that recursively generates research ideas, implements experiments, analyzes results, and writes papers. Demonstrates recursive scientific discovery with LLMs in the loop.</p>
+                        <p><a href="https://arxiv.org/abs/2408.06292">arxiv.org/abs/2408.06292</a> · <span class="tag">automation</span> <span class="tag">scientific discovery</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Voyager: An Open-Ended Embodied Agent with LLMs</div>
+                        <div class="paper-meta">Wang et al. — NVIDIA, 2023</div>
+                        <p>LLM agent in Minecraft that recursively improves: prompts an LLM for code, tests it in the game, stores successful programs, and builds on them. An expanding skill library through recursive exploration.</p>
+                        <p><a href="https://arxiv.org/abs/2305.16291">arxiv.org/abs/2305.16291</a> · <span class="tag">agents</span> <span class="tag">embodied AI</span></p>
+                    </li>
+                    <li class="paper-item">
+                        <div class="paper-title">Recursive AI: Silicon Valley's Next Frontier (NYT, Jan 2026)</div>
+                        <div class="paper-meta">Coverage of Richard Socher's Recursive AI startup and OpenAI's automated researcher</div>
+                        <p>Industry shift toward building AI systems that can recursively improve ML algorithms — automating AI research itself. OpenAI aims for an automated researcher by fall 2026.</p>
+                        <p><a href="https://www.nytimes.com/2026/01/26/technology/recursive-ai-ricursive.html">nytimes.com</a> · <span class="tag">industry</span> <span class="tag">startups</span></p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <h2>Research Themes</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h4>Inference-Time Scaling</h4>
+                        <p>Growing evidence that spending more compute at inference (via recursive reasoning) can be more efficient than training larger models. The "scaling" axis is shifting from parameters to thinking time.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Scalable Oversight</h4>
+                        <p>How do you supervise AI systems smarter than you? Recursive decomposition of evaluation tasks, debate between AIs, and market-based mechanisms are active research areas (Anthropic, DeepMind, OpenAI).</p>
+                    </div>
+                    <div class="card">
+                        <h4>Model Collapse vs. Recursive Gains</h4>
+                        <p>Training on model-generated data can cause "model collapse" — but careful recursive training (with filtering and diversity) avoids this. Understanding this boundary is a key open question.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="fundamentals.html">Fundamentals</a>
+            <a href="techniques.html">Techniques</a>
+            <a href="research.html">Research</a>
+            <a href="applications.html">Applications</a>
+            <a href="resources.html">Resources</a>
+        </div>
+        <p>© 2026 rlm.md. An educational resource on Recursive Learning Models.</p>
+    </footer>
+</body>
+</html>
