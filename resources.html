@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resources -- rlm.md</title>
-    <meta name="description" content="Papers, courses, codebases, and communities for learning about recursive learning models. The reading list we wish we'd had.">
+    <title>Resources -- Papers, Code, and Tools | rlm.md</title>
+    <meta name="description" content="Essential resources for Recursive Language Models: the arXiv paper, GitHub repository, pip package, sandbox options, Google ADK integration, and related work on long-context processing.">
+    <meta name="keywords" content="RLM resources, recursive language models code, rlms pip package, RLM GitHub, Google ADK RLM, long context papers">
     <link rel="canonical" href="https://rlm.md/resources.html">
+    <meta property="og:title" content="Resources -- Papers, Code, and Tools">
+    <meta property="og:description" content="Everything you need to start using Recursive Language Models: paper, code, pip package, and related work.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -27,164 +30,163 @@
 <div class="page-body">
 <div class="container">
 
-    <header class="page-header fade-in">
+    <section class="hero fade-in">
         <span class="hero-label">Resources</span>
-        <h1>Go deeper</h1>
-        <p class="lead">The reading list we wish existed when we started. Papers, courses, codebases, and communities -- organized by what you're trying to learn, not by publication date.</p>
-    </header>
-
-    <!-- Essential papers -->
-    <section class="section fade-in">
-        <h2>Essential reading</h2>
-        <p>If you read five papers on recursive learning, make it these five. Ordered by "read this first."</p>
-        <div style="margin-top: 2rem;">
-            <div class="timeline-item">
-                <div class="timeline-year">Start here</div>
-                <div>
-                    <h3>STaR: Bootstrapping Reasoning With Reasoning</h3>
-                    <p style="margin-bottom: 0.5rem;">Zelikman et al., 2022. The clearest explanation of how recursive self-improvement works for reasoning. Short, elegant, reproducible.</p>
-                    <p><a href="https://arxiv.org/abs/2203.14465">arxiv.org/abs/2203.14465</a></p>
-                </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">Then</div>
-                <div>
-                    <h3>Constitutional AI: Harmlessness from AI Feedback</h3>
-                    <p style="margin-bottom: 0.5rem;">Bai et al., 2022. How to make the evaluation step recursive too. Essential for understanding alignment through self-supervision.</p>
-                    <p><a href="https://arxiv.org/abs/2212.08073">arxiv.org/abs/2212.08073</a></p>
-                </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">Then</div>
-                <div>
-                    <h3>Mastering the Game of Go without Human Knowledge</h3>
-                    <p style="margin-bottom: 0.5rem;">Silver et al., 2017. The original proof that recursive self-play can surpass all human expertise from scratch.</p>
-                    <p><a href="https://www.nature.com/articles/nature24270">nature.com/articles/nature24270</a></p>
-                </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">Then</div>
-                <div>
-                    <h3>DeepSeek-R1: Incentivizing Reasoning via RL</h3>
-                    <p style="margin-bottom: 0.5rem;">DeepSeek, 2025. Pure RL producing emergent reasoning. The state of the art in recursive training for language models.</p>
-                    <p><a href="https://arxiv.org/abs/2501.12948">arxiv.org/abs/2501.12948</a></p>
-                </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">Finally</div>
-                <div>
-                    <h3>The Curse of Recursion</h3>
-                    <p style="margin-bottom: 0.5rem;">Shumailov et al., 2023. The failure mode. What goes wrong when you do recursive learning naively. Read this so you don't repeat these mistakes.</p>
-                    <p><a href="https://arxiv.org/abs/2305.17493">arxiv.org/abs/2305.17493</a></p>
-                </div>
-            </div>
-        </div>
+        <h1>Everything you need to <span class="accent">get started</span>.</h1>
+        <p class="hero-sub">The paper, the code, the pip package, the sandbox options, and related work worth reading. No filler.</p>
     </section>
 
     <hr class="divider">
 
-    <!-- Courses -->
     <section class="section fade-in">
-        <h2>Courses and lectures</h2>
-        <div class="card-grid" style="margin-top: 1.5rem;">
-            <div class="card">
-                <h3>Stanford CS234: Reinforcement Learning</h3>
-                <p>Emma Brunskill's course. The mathematical foundations of RL that underpin all recursive learning techniques. Free lecture videos on YouTube.</p>
-                <p style="margin-top: 0.75rem;"><a href="https://web.stanford.edu/class/cs234/">stanford.edu/class/cs234</a></p>
+        <div class="split">
+            <div>
+                <span class="split-label">Primary</span>
+                <h2>The paper and code</h2>
             </div>
-            <div class="card">
-                <h3>Berkeley CS285: Deep RL</h3>
-                <p>Sergey Levine's course. More focused on deep RL and policy gradient methods. Excellent for understanding RLHF and PPO at a technical level.</p>
-                <p style="margin-top: 0.75rem;"><a href="https://rail.eecs.berkeley.edu/deeprlcourse/">rail.eecs.berkeley.edu/deeprlcourse</a></p>
-            </div>
-            <div class="card">
-                <h3>Hugging Face RLHF Course</h3>
-                <p>Practical, code-first introduction to RLHF. Less theory, more "here's how to actually train a model with human feedback." Good starting point for practitioners.</p>
-                <p style="margin-top: 0.75rem;"><a href="https://huggingface.co/learn">huggingface.co/learn</a></p>
-            </div>
-            <div class="card">
-                <h3>David Silver's RL Lectures</h3>
-                <p>The AlphaGo creator's lecture series on RL fundamentals. Clear, authoritative, and still relevant despite being from 2015. The best introduction to value functions and policy gradients.</p>
-                <p style="margin-top: 0.75rem;"><a href="https://www.davidsilver.uk/teaching/">davidsilver.uk/teaching</a></p>
+            <div>
+                <p><strong>arXiv Paper</strong><br>
+                <a href="https://arxiv.org/abs/2512.24601" target="_blank">arxiv.org/abs/2512.24601</a><br>
+                "Recursive Language Models" -- Alex L. Zhang, Tim Kraska, Omar Khattab. MIT OASYS Lab. Accepted at ICML 2025. The full paper with all benchmarks, ablations, and training details.</p>
+
+                <p><strong>HTML Version</strong><br>
+                <a href="https://arxiv.org/html/2512.24601v2" target="_blank">arxiv.org/html/2512.24601v2</a><br>
+                Readable in-browser version with figures and tables rendered inline.</p>
+
+                <p><strong>GitHub Repository</strong><br>
+                <a href="https://github.com/alexzhang13/rlm" target="_blank">github.com/alexzhang13/rlm</a><br>
+                The official inference engine. Supports OpenAI, Anthropic, OpenRouter, Portkey, LiteLLM, and vLLM backends. Multiple REPL environments (local, Docker, Modal, Prime Intellect). MIT license.</p>
+
+                <p><strong>Minimal Implementation</strong><br>
+                <a href="https://github.com/alexzhang13/rlm-minimal" target="_blank">github.com/alexzhang13/rlm-minimal</a><br>
+                Stripped-down reference implementation for understanding the core algorithm without the full library overhead.</p>
+
+                <p><strong>pip Package</strong><br>
+                <code>pip install rlms</code><br>
+                Install and use in three lines of Python. Supports all major model providers out of the box.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Code -->
     <section class="section fade-in">
-        <h2>Codebases and tools</h2>
-        <div style="margin-top: 1.5rem;">
-            <div class="timeline-item">
-                <div class="timeline-year" style="color: var(--teal);">Code</div>
-                <div>
-                    <h3>OpenRLHF</h3>
-                    <p>Open-source framework for RLHF training. Supports PPO, DPO, and various reward modeling approaches. The most practical starting point for implementing recursive training loops.</p>
-                    <p><a href="https://github.com/OpenRLHF/OpenRLHF">github.com/OpenRLHF/OpenRLHF</a></p>
-                </div>
+        <div class="split">
+            <div>
+                <span class="split-label">Quick start</span>
+                <h2>Running your first RLM</h2>
             </div>
-            <div class="timeline-item">
-                <div class="timeline-year" style="color: var(--teal);">Code</div>
-                <div>
-                    <h3>TRL (Transformer Reinforcement Learning)</h3>
-                    <p>Hugging Face's library for fine-tuning language models with RL. PPO, DPO, and reward model training out of the box. Well-documented, actively maintained.</p>
-                    <p><a href="https://github.com/huggingface/trl">github.com/huggingface/trl</a></p>
+            <div>
+                <div style="background: var(--bg-alt, rgba(255,255,255,0.02)); padding: 1.5rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border); line-height: 1.6;">
+<pre style="margin:0; color: var(--text);">pip install rlms
+
+from rlm import RLM
+
+rlm = RLM(
+    backend="openai",
+    backend_kwargs={"model_name": "gpt-5-nano"},
+    verbose=True,
+)
+
+response = rlm.completion("Your very long prompt here...")
+print(response.response)</pre>
                 </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year" style="color: var(--teal);">Code</div>
-                <div>
-                    <h3>veRL (Volcano Engine RL)</h3>
-                    <p>ByteDance's framework for large-scale RL training of language models. Built for the DeepSeek-R1-style training pipeline. Efficient multi-GPU support.</p>
-                    <p><a href="https://github.com/volcengine/verl">github.com/volcengine/verl</a></p>
-                </div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year" style="color: var(--teal);">Code</div>
-                <div>
-                    <h3>LeanDojo</h3>
-                    <p>Tools for training AI to prove theorems in Lean. If you're interested in the formal verification side of recursive learning, start here.</p>
-                    <p><a href="https://github.com/lean-dojo/LeanDojo">github.com/lean-dojo/LeanDojo</a></p>
-                </div>
+                <p style="margin-top: 1rem;">That's it. The <code>rlm.completion()</code> call is a drop-in replacement for <code>llm.completion()</code>. Same input (a string prompt), same output (a string response). The recursion happens transparently.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Communities -->
     <section class="section fade-in">
-        <h2>Communities</h2>
-        <div class="card-grid" style="margin-top: 1.5rem;">
-            <div class="card">
-                <h3>r/LocalLLaMA</h3>
-                <p>Reddit's most active community for open-source LLM work. Heavy coverage of DeepSeek, recursive training techniques, and practical implementation questions.</p>
+        <div class="split">
+            <div>
+                <span class="split-label">Blogpost</span>
+                <h2>Author's blog</h2>
             </div>
-            <div class="card">
-                <h3>EleutherAI Discord</h3>
-                <p>Open-source AI research community. Active discussions on RL training, reward modeling, and alignment. Good place to find collaborators.</p>
-            </div>
-            <div class="card">
-                <h3>Alignment Forum</h3>
-                <p>More theoretical, focused on safety implications of recursive self-improvement. Essential reading if you care about where this is all going.</p>
-                <p style="margin-top: 0.75rem;"><a href="https://www.alignmentforum.org">alignmentforum.org</a></p>
+            <div>
+                <p><strong>Original Blogpost (October 2025)</strong><br>
+                <a href="https://alexzhang13.github.io/blog/2025/rlm/" target="_blank">alexzhang13.github.io/blog/2025/rlm/</a><br>
+                Alex Zhang's original blog post that introduced the RLM idea before the expanded arXiv paper. Good for intuition-building.</p>
+
+                <p><strong>Documentation</strong><br>
+                <a href="https://alexzhang13.github.io/rlm/" target="_blank">alexzhang13.github.io/rlm/</a><br>
+                Official documentation for the rlms library. API reference, configuration options, and examples.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Staying current -->
     <section class="section fade-in">
-        <h2>Staying current</h2>
-        <p>This field moves fast. Here's how to keep up without drowning:</p>
-        <ul style="margin: 1.5rem 0 0 1.5rem; color: var(--text-muted);">
-            <li style="margin-bottom: 0.75rem;"><strong>Arxiv Sanity</strong> (<a href="https://arxiv-sanity-lite.com">arxiv-sanity-lite.com</a>) -- Karpathy's tool for filtering the arxiv firehose. Set up alerts for "recursive learning," "self-play," "reward modeling."</li>
-            <li style="margin-bottom: 0.75rem;"><strong>Interconnects</strong> (Nathan Lambert's blog) -- Best regular coverage of RLHF, reward modeling, and alignment training techniques.</li>
-            <li style="margin-bottom: 0.75rem;"><strong>The Gradient</strong> -- Long-form ML journalism. Good signal-to-noise ratio.</li>
-            <li style="margin-bottom: 0.75rem;"><strong>Papers With Code</strong> -- Track state-of-the-art results on benchmarks relevant to recursive learning (MATH, GSM8K, SWE-bench).</li>
-        </ul>
+        <div class="split">
+            <div>
+                <span class="split-label">Community</span>
+                <h2>Discussions and integrations</h2>
+            </div>
+            <div>
+                <p><strong>Google ADK Discussion</strong><br>
+                <a href="https://discuss.google.dev/t/recursive-language-models-in-adk/323523" target="_blank">discuss.google.dev/t/recursive-language-models-in-adk/323523</a><br>
+                Community discussion on integrating RLMs with Google's Agent Development Kit for long-context agent tasks.</p>
+
+                <p><strong>ArXivIQ Coverage</strong><br>
+                <a href="https://arxiviq.substack.com/p/recursive-language-models" target="_blank">arxiviq.substack.com/p/recursive-language-models</a><br>
+                Summary and analysis of the RLM paper from the ArXivIQ newsletter.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Related work</span>
+                <h2>Papers worth reading alongside RLMs</h2>
+            </div>
+            <div>
+                <p><strong>Inference-time scaling and reasoning:</strong></p>
+                <ul>
+                    <li>Merrill and Sabharwal (2024) -- "The Expressive Power of Transformers with Chain of Thought." Theoretical foundation for why inference-time compute adds expressive power.</li>
+                    <li>DeepSeek-R1 -- Pure RL training for chain-of-thought reasoning, demonstrating that models can learn reasoning strategies without human demonstrations.</li>
+                </ul>
+
+                <p><strong>Long-context benchmarks:</strong></p>
+                <ul>
+                    <li>RULER (Hsieh et al., 2024) -- Needle-in-a-haystack and retrieval benchmarks for long-context evaluation.</li>
+                    <li>OOLONG (Bertsch et al., 2025) -- Long reasoning benchmark requiring semantic transformation and aggregation.</li>
+                    <li>BrowseComp-Plus (Chen et al., 2025) -- Deep research benchmark over large document corpora.</li>
+                    <li>LongBench-v2 (Bai et al., 2025) -- Code repository understanding and other long-context tasks.</li>
+                </ul>
+
+                <p><strong>Agent scaffolds and context management:</strong></p>
+                <ul>
+                    <li>CodeAct (Wang et al., 2024) -- Code execution in a ReAct agent loop.</li>
+                    <li>DSPy (Khattab et al., 2021) -- Programmatic framework for LLM pipelines, including context management.</li>
+                    <li>Context compaction approaches (Smith 2025, Wu et al. 2025) -- Iterative summarization of agent trajectories.</li>
+                </ul>
+
+                <p><strong>Self-delegation:</strong></p>
+                <ul>
+                    <li>Anthropic sub-agent patterns (2025) -- Autoregressive self-delegation, contrasted with RLMs' programmatic approach.</li>
+                    <li>Schroeder et al. (2025), Sun et al. (2025) -- Other approaches to LLM self-invocation.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Citation</span>
+                <h2>BibTeX</h2>
+            </div>
+            <div>
+                <div style="background: var(--bg-alt, rgba(255,255,255,0.02)); padding: 1.5rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; border: 1px solid var(--border); line-height: 1.5;">
+<pre style="margin:0; color: var(--text);">@misc{zhang2025recursivelanguagemodels,
+    title={Recursive Language Models},
+    author={Alex L. Zhang and Tim Kraska and Omar Khattab},
+    year={2025},
+    eprint={2512.24601},
+    archivePrefix={arXiv},
+    primaryClass={cs.AI},
+    url={https://arxiv.org/abs/2512.24601},
+}</pre>
+                </div>
+            </div>
+        </div>
     </section>
 
 </div>
