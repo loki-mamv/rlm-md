@@ -105,8 +105,9 @@
                 <p>RLM-Qwen3-8B -- an 8-billion parameter model post-trained on just 1,000 samples -- outperforms the base Qwen3-8B by <strong>28.3% on average</strong> across four diverse long-context benchmarks. It approaches the quality of vanilla GPT-5 on three of them.</p>
                 <p>At the frontier scale, RLM(GPT-5) maintains strong performance on inputs up to 2^18 tokens (262K+), while vanilla GPT-5 degrades sharply as inputs grow. On OOLONG-Pairs -- a task requiring quadratic-complexity reasoning -- GPT-5 scores less than 0.1% F1. The RLM version scores 58%.</p>
                 <p>The cost? Comparable. At the median, RLM runs are actually <em>cheaper</em> than base model calls on GPT-5, because the model selectively examines context rather than ingesting everything at once.</p>
+                <p>The ecosystem is already moving. DSPy (v3.1.2+) ships with built-in RLM support. Google's Agent Development Kit has an enterprise-ready implementation with lazy file loading and parallel sub-calls. VentureBeat, InfoQ, and Towards Data Science have all published deep dives in the last month. This isn't a paper that got filed away -- it's being adopted.</p>
                 <div class="callout" style="margin-top:2rem;">
-                    <p>"RLMs demonstrate extremely strong performance even at the 10M+ token scale, and substantially outperform all other approaches at long-context processing, in many cases by double-digit percentage gains while maintaining comparable cost." -- Zhang, Kraska, Khattab (2025)</p>
+                    <p>"It's a partially observable problem that you're giving the LM, where it can make logical decisions based on the structure of the task and context." -- Alex Zhang, MIT CSAIL</p>
                 </div>
             </div>
         </div>
