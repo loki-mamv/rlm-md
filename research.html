@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research -- rlm.md</title>
-    <meta name="description" content="Key papers in recursive learning: from AlphaGo Zero to DeepSeek-R1. Annotated, opinionated, and chronologically ordered.">
+    <title>Research -- Paper Deep Dive and Benchmark Results | rlm.md</title>
+    <meta name="description" content="Deep dive into the Recursive Language Models paper (arXiv 2512.24601). Benchmark results on S-NIAH, OOLONG, BrowseComp-Plus, and CodeQA. RLM-Qwen3-8B vs GPT-5 comparison.">
+    <meta name="keywords" content="RLM paper, arXiv 2512.24601, benchmark results, RLM-Qwen3-8B, GPT-5 comparison, OOLONG, BrowseComp-Plus, long context benchmarks">
     <link rel="canonical" href="https://rlm.md/research.html">
+    <meta property="og:title" content="Research -- Paper Deep Dive and Benchmark Results">
+    <meta property="og:description" content="The RLM paper dissected: benchmarks, results, and what they mean for the field.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -27,158 +30,180 @@
 <div class="page-body">
 <div class="container">
 
-    <header class="page-header fade-in">
+    <section class="hero fade-in">
         <span class="hero-label">Research</span>
-        <h1>The papers that matter</h1>
-        <p class="lead">A chronological tour of the key results in recursive learning. Not comprehensive -- opinionated. These are the papers that changed what people thought was possible.</p>
-    </header>
-
-    <!-- Timeline -->
-    <section class="section fade-in">
-
-        <div class="timeline-item">
-            <div class="timeline-year">2017</div>
-            <div>
-                <h3>Mastering the Game of Go without Human Knowledge</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Silver et al. -- DeepMind / Nature</p>
-                <p>AlphaGo Zero. The paper that proved recursive self-play could surpass all human expertise from a blank slate. 40 days of self-play, zero human game data, superhuman performance. This isn't just a Go result -- it's an existence proof that recursive learning works at scale.</p>
-                <p><a href="https://www.nature.com/articles/nature24270">nature.com/articles/nature24270</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2017</div>
-            <div>
-                <h3>Mastering Chess and Shogi by Self-Play</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Silver et al. -- DeepMind</p>
-                <p>AlphaZero. Generalized the approach to chess and shogi. Same algorithm, different games, same result: superhuman performance through pure self-play. Demonstrated that the recursive approach wasn't specific to Go but a general principle.</p>
-                <p><a href="https://arxiv.org/abs/1712.01815">arxiv.org/abs/1712.01815</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2020</div>
-            <div>
-                <h3>Learning to Summarize from Human Feedback</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Stiennon et al. -- OpenAI</p>
-                <p>Early RLHF applied to summarization. Showed that training a reward model on human preferences, then optimizing a policy against it, produced summaries that humans preferred over the base model's output. The template for everything that followed.</p>
-                <p><a href="https://arxiv.org/abs/2009.01325">arxiv.org/abs/2009.01325</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2022</div>
-            <div>
-                <h3>Training Language Models to Follow Instructions with Human Feedback</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Ouyang et al. -- OpenAI</p>
-                <p>InstructGPT. The paper behind ChatGPT's instruction-following ability. RLHF at scale. Showed that a relatively small amount of human preference data, combined with recursive reward model training, could transform a base language model into something genuinely useful.</p>
-                <p><a href="https://arxiv.org/abs/2203.02155">arxiv.org/abs/2203.02155</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2022</div>
-            <div>
-                <h3>STaR: Bootstrapping Reasoning With Reasoning</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Zelikman et al. -- Stanford</p>
-                <p>Self-Taught Reasoner. Generate rationales, keep the ones that lead to correct answers, train on them, repeat. Simple, effective, and the intellectual ancestor of much of what o1 and R1 do. The rationalization trick -- giving the model the answer and asking it to explain why -- was particularly clever.</p>
-                <p><a href="https://arxiv.org/abs/2203.14465">arxiv.org/abs/2203.14465</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2022</div>
-            <div>
-                <h3>Constitutional AI: Harmlessness from AI Feedback</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Bai et al. -- Anthropic</p>
-                <p>The model critiques and revises its own outputs according to a set of principles. Then trains on the revisions. Removed most of the human labeling from the alignment loop. A fully recursive alignment technique that gets better as the model gets smarter.</p>
-                <p><a href="https://arxiv.org/abs/2212.08073">arxiv.org/abs/2212.08073</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2023</div>
-            <div>
-                <h3>The Curse of Recursion: Training on Generated Data Makes Models Forget</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Shumailov et al. -- Oxford / Cambridge</p>
-                <p>The cautionary tale. Showed that naively training on model-generated data causes model collapse -- progressive loss of diversity and accuracy. Essential reading for anyone building recursive systems. Not a reason to avoid recursion, but a reason to do it carefully.</p>
-                <p><a href="https://arxiv.org/abs/2305.17493">arxiv.org/abs/2305.17493</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2024</div>
-            <div>
-                <h3>Scaling LLM Test-Time Compute Optimally</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Snell et al. -- UC Berkeley</p>
-                <p>Showed that spending more compute at inference (generating and evaluating multiple solutions) can be more cost-effective than training a larger model. Formalized the test-time compute scaling laws. The theoretical backbone of the o-series models.</p>
-                <p><a href="https://arxiv.org/abs/2408.03314">arxiv.org/abs/2408.03314</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2024</div>
-            <div>
-                <h3>AlphaProof and AlphaGeometry 2</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Google DeepMind</p>
-                <p>AlphaProof solved 4 of 6 problems at the International Mathematical Olympiad -- silver medal level -- using a recursive approach: generate proof candidates, verify with Lean (a formal proof assistant), train on successful proofs. Applied the AlphaZero philosophy to mathematical reasoning.</p>
-                <p><a href="https://deepmind.google/discover/blog/ai-solves-imo-problems-at-silver-medal-level/">deepmind.google blog post</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2025</div>
-            <div>
-                <h3>DeepSeek-R1: Incentivizing Reasoning via Reinforcement Learning</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">DeepSeek AI -- Published in Nature (Sept 2025)</p>
-                <p>The paper that shook the industry. Pure RL, no supervised fine-tuning on reasoning demonstrations. R1-Zero developed chain-of-thought reasoning spontaneously through reward signals alone. Then R1 added a small amount of cold-start data and scaled further. Matched o1 on benchmarks. Open-sourced the weights. Published in Nature.</p>
-                <p>The key finding: <strong>reasoning emerges from pure recursive reinforcement learning</strong>. You don't need to teach the model how to reason. You need to reward it for getting the right answer and let recursion do the rest.</p>
-                <p><a href="https://arxiv.org/abs/2501.12948">arxiv.org/abs/2501.12948</a></p>
-            </div>
-        </div>
-
-        <div class="timeline-item">
-            <div class="timeline-year">2025</div>
-            <div>
-                <h3>AlphaEvolve</h3>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem;">Google DeepMind -- May 2025</p>
-                <p>An evolutionary coding agent that uses LLMs to generate and mutate programs, evaluates them against fitness functions, and selects the best. Found improvements to core algorithms used in Google's infrastructure -- including matrix multiplication kernels for TPUs. AI improving the hardware that trains AI.</p>
-                <p><a href="https://deepmind.google/discover/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/">deepmind.google blog post</a></p>
-            </div>
-        </div>
-
+        <h1>The paper, <span class="accent">dissected</span>.</h1>
+        <p class="hero-sub">"Recursive Language Models" by Alex L. Zhang, Tim Kraska, and Omar Khattab. MIT OASYS Lab. arXiv:2512.24601. Accepted at ICML 2025. This is the paper that introduced RLMs as a general inference paradigm.</p>
     </section>
 
     <hr class="divider">
 
-    <!-- Pattern -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">The pattern</span>
-                <h2>What ties these together</h2>
+                <span class="split-label">The paper</span>
+                <h2>What it claims and why you should believe it</h2>
             </div>
             <div>
-                <p>Read these papers chronologically and a clear trajectory emerges:</p>
-                <p><strong>2017:</strong> Recursive learning works in games with perfect information.</p>
-                <p><strong>2020-2022:</strong> It works for aligning language models, if humans stay in the loop.</p>
-                <p><strong>2022-2023:</strong> The human can be partially replaced by the model itself (constitutional AI, STaR).</p>
-                <p><strong>2024:</strong> Recursive reasoning produces olympiad-level mathematics.</p>
-                <p><strong>2025:</strong> Pure RL produces emergent reasoning. AI systems improve AI infrastructure.</p>
-                <p>Each year, the human's role in the loop gets smaller. The question driving current research: how small can it get?</p>
+                <p>The central claim: you can dramatically scale the effective input and output lengths of any LLM, at inference time, by treating the prompt as an external environment and enabling symbolic recursion.</p>
+                <p>This isn't another "we made the context window bigger" paper. It's an argument that the entire paradigm of stuffing tokens into a Transformer is wrong for information-dense tasks, and that the right abstraction is recursive self-invocation over programmatic slices of the input.</p>
+                <p>The evidence is strong. Four diverse benchmarks, two frontier models (GPT-5 and Qwen3-Coder-480B), multiple baselines (vanilla LLM, CodeAct, CodeAct+BM25, summary agents, CodeAct with sub-calls), and a small-scale post-training experiment. The results are consistent across all of them.</p>
             </div>
         </div>
     </section>
 
-    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
-        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="applications.html" style="font-size: 1.1rem;">Applications -- where it's deployed</a></p>
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Benchmarks</span>
+                <h2>Four tasks, four complexity levels</h2>
+            </div>
+            <div>
+                <p><strong>S-NIAH (Single Needle in a Haystack)</strong> -- Find a specific phrase or number in a large body of unrelated text. 50 tasks. Complexity: O(1) with respect to input length. This is the easy case -- frontier models already handle it well at moderate lengths.</p>
+                <p><strong>BrowseComp-Plus (1K documents)</strong> -- Multi-hop question answering over 1,000 documents. Requires piecing together information from several gold/evidence documents buried in hard negatives. 150 instances. Harder than S-NIAH because it requires finding and connecting multiple documents.</p>
+                <p><strong>OOLONG (trec_coarse)</strong> -- Transform every chunk of input semantically, then aggregate to form a final answer. 50 tasks. Complexity: O(n) -- the answer depends on nearly every entry in the dataset. This is where standard models start breaking hard.</p>
+                <p><strong>OOLONG-Pairs</strong> -- A modified version requiring aggregation over <em>pairs</em> of chunks. 20 tasks. Complexity: O(n^2). The worst case for standard models. Frontier models essentially can't solve this at all.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Results</span>
+                <h2>The numbers that matter</h2>
+            </div>
+            <div>
+                <p>Selected results from Table 1 of the paper:</p>
+                <div style="overflow-x: auto; margin: 1.5rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border);">
+                                <th style="text-align: left; padding: 0.5rem;">Method</th>
+                                <th style="text-align: center; padding: 0.5rem;">S-NIAH</th>
+                                <th style="text-align: center; padding: 0.5rem;">BrowseComp+</th>
+                                <th style="text-align: center; padding: 0.5rem;">OOLONG</th>
+                                <th style="text-align: center; padding: 0.5rem;">OOLONG-Pairs</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 0.5rem;">GPT-5 (vanilla)</td>
+                                <td style="text-align: center; padding: 0.5rem;">92.0</td>
+                                <td style="text-align: center; padding: 0.5rem; color: var(--text-dim);">*</td>
+                                <td style="text-align: center; padding: 0.5rem;">41.1</td>
+                                <td style="text-align: center; padding: 0.5rem;">&lt;0.1</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 0.5rem;"><strong>RLM(GPT-5)</strong></td>
+                                <td style="text-align: center; padding: 0.5rem;"><strong>98.0</strong></td>
+                                <td style="text-align: center; padding: 0.5rem;"><strong>47.3</strong></td>
+                                <td style="text-align: center; padding: 0.5rem;"><strong>69.5</strong></td>
+                                <td style="text-align: center; padding: 0.5rem;"><strong>58.0</strong></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 0.5rem;">Summary Agent (GPT-5)</td>
+                                <td style="text-align: center; padding: 0.5rem;">--</td>
+                                <td style="text-align: center; padding: 0.5rem;">18.0</td>
+                                <td style="text-align: center; padding: 0.5rem;">48.8</td>
+                                <td style="text-align: center; padding: 0.5rem;">1.5</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 0.5rem;">CodeAct+BM25 (GPT-5)</td>
+                                <td style="text-align: center; padding: 0.5rem;">98.0</td>
+                                <td style="text-align: center; padding: 0.5rem;">41.3</td>
+                                <td style="text-align: center; padding: 0.5rem;">24.5</td>
+                                <td style="text-align: center; padding: 0.5rem;">&lt;0.1</td>
+                            </tr>
+                            <tr style="border-bottom: 2px solid var(--border);">
+                                <td style="padding: 0.5rem;">Qwen3-8B (vanilla)</td>
+                                <td style="text-align: center; padding: 0.5rem; color: var(--text-dim);">*</td>
+                                <td style="text-align: center; padding: 0.5rem; color: var(--text-dim);">*</td>
+                                <td style="text-align: center; padding: 0.5rem; color: var(--text-dim);">low</td>
+                                <td style="text-align: center; padding: 0.5rem; color: var(--text-dim);">low</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;"><strong>RLM-Qwen3-8B</strong></td>
+                                <td style="text-align: center; padding: 0.5rem;" colspan="4"><strong>+28.3% avg improvement over base Qwen3-8B</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-dim);">* indicates input exceeded context limits. Simplified from Table 1; see paper for full results including Qwen3-Coder-480B numbers and cost breakdowns.</p>
+                <p>The standout: OOLONG-Pairs. GPT-5 scores essentially zero. The RLM version scores 58% F1. This is a task that is mathematically impossible to solve well in a single forward pass because it requires O(n^2) semantic operations. The RLM writes a nested loop that compares every pair of entries -- exactly the kind of thing no amount of attention mechanism improvement will achieve.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Scaling</span>
+                <h2>Performance vs input length</h2>
+            </div>
+            <div>
+                <p>Figure 1 of the paper is the money chart. It plots performance on S-NIAH, OOLONG, and OOLONG-Pairs as input length scales from 2^13 (8K) to 2^18 (262K) tokens.</p>
+                <p>For S-NIAH (constant complexity): GPT-5 holds steady, the RLM holds steady. Not much difference at shorter lengths -- the gap appears beyond 2^14 tokens.</p>
+                <p>For OOLONG (linear complexity): GPT-5 degrades steadily. The RLM maintains strong performance throughout. The crossover happens around 2^14 tokens.</p>
+                <p>For OOLONG-Pairs (quadratic complexity): GPT-5 collapses immediately. Even at 2^13 tokens (the shortest tested), it's already struggling. The RLM maintains reasonable performance across the entire range.</p>
+                <p>Beyond 2^18 tokens (the red line in the figure -- past GPT-5's 272K context window), the base model simply can't run. The RLM keeps going.</p>
+                <p>The paper also tested at the 10M+ token scale on BrowseComp-Plus, where input corpora are 6-11M tokens. A linearly extrapolated cost for GPT-5-mini ingesting that much would be $1.50-$2.75. The RLM averaged $0.99 while outperforming all baselines by 29%+.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Cost analysis</span>
+                <h2>Cheaper at the median, volatile at the tail</h2>
+            </div>
+            <div>
+                <p>One of the more counterintuitive findings: RLMs are often <em>cheaper</em> than base model calls. At the 50th percentile, RLM(GPT-5) costs less than vanilla GPT-5 across most benchmarks.</p>
+                <p>Why? Because the RLM selectively examines context. Instead of ingesting a full 200K-token prompt, it might only look at 30K tokens total across its sub-calls. You pay for what you use.</p>
+                <p>The catch: high variance. At the 95th percentile, some RLM runs are significantly more expensive due to long trajectories. The model sometimes explores more paths than necessary. Compared to the summarization agent (which always ingests everything), RLMs are up to 3x cheaper at comparable performance levels.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Ablations</span>
+                <h2>What actually matters in the design</h2>
+            </div>
+            <div>
+                <p>The paper runs careful ablations:</p>
+                <p><strong>REPL without sub-calls:</strong> Just having the prompt as an external variable (without recursive self-invocation) already helps a lot. It beats most baselines and scales beyond context limits. But on information-dense tasks (OOLONG, OOLONG-Pairs), sub-calls provide an additional 10-59% improvement.</p>
+                <p><strong>CodeAct with sub-calls (but prompt in context):</strong> Giving an agent sub-call ability without externalizing the prompt doesn't close the gap. The prompt-in-context bottleneck is real.</p>
+                <p><strong>Different root/sub models:</strong> Using a cheaper model for sub-calls (GPT-5-mini for subs, GPT-5 for root) works well and reduces cost. The sub-call model doesn't need to be as capable as the root.</p>
+                <p>The takeaway: both the REPL (prompt as variable) and symbolic recursion (programmatic sub-calls) contribute independently, and their combination is greater than either alone.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Related work</span>
+                <h2>Where RLMs sit in the literature</h2>
+            </div>
+            <div>
+                <p>RLMs draw on and improve several existing lines of research:</p>
+                <p><strong>Inference-time compute scaling</strong> -- the reasoning model paradigm (OpenAI o-series, DeepSeek-R1) showed that spending more compute at inference improves results. RLMs apply the same idea to context length rather than reasoning depth.</p>
+                <p><strong>Coding agents</strong> (CodeAct, SWE-agent) -- these treat external files as an environment, but can't handle arbitrarily long user prompts because the prompt still goes into context.</p>
+                <p><strong>Self-delegation</strong> (Anthropic sub-agents, Sentient AI) -- these let models invoke themselves, but autoregressively rather than programmatically, limiting the scale of delegation.</p>
+                <p><strong>Context compaction</strong> (DSPy, OpenAI context condensation) -- useful for agent trajectories but lossy for dense reasoning tasks.</p>
+                <p>The theoretical contribution: RLMs show that with symbolic recursion and external prompt storage, you can achieve effectively unbounded input tokens, unbounded output tokens, and unbounded semantic horizon.</p>
+            </div>
+        </div>
     </section>
 
 </div>
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
 </footer>
 
 <script>
