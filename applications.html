@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Applications -- rlm.md</title>
-    <meta name="description" content="Where recursive learning is deployed: code generation, mathematics, drug discovery, robotics, and AI infrastructure optimization.">
+    <title>Applications -- Where Recursive Language Models Change Things | rlm.md</title>
+    <meta name="description" content="Real-world applications of Recursive Language Models: legal document analysis, codebase understanding, book-length summarization, deep research, and integration with Google ADK.">
+    <meta name="keywords" content="RLM applications, long document analysis, codebase understanding, legal AI, book summarization, Google ADK, recursive language models use cases">
     <link rel="canonical" href="https://rlm.md/applications.html">
+    <meta property="og:title" content="Applications -- Where Recursive Language Models Change Things">
+    <meta property="og:description" content="Legal analysis, codebase understanding, deep research, and other tasks that need more than a context window.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -27,113 +30,114 @@
 <div class="page-body">
 <div class="container">
 
-    <header class="page-header fade-in">
+    <section class="hero fade-in">
         <span class="hero-label">Applications</span>
-        <h1>Where it's already working</h1>
-        <p class="lead">Recursive learning isn't a research curiosity anymore. It's deployed, generating revenue, and solving problems that traditional ML couldn't touch. Here's where.</p>
-    </header>
-
-    <!-- Code -->
-    <section class="section fade-in">
-        <div class="split">
-            <div>
-                <span class="split-label">Verification is easy</span>
-                <h2>Code generation</h2>
-            </div>
-            <div>
-                <p>Code is the ideal domain for recursive learning. Why? Because verification is automated. Tests pass or they don't. The code compiles or it doesn't. You have a perfect signal.</p>
-                <p>AlphaCode (DeepMind, 2022) used massive sampling -- generating millions of candidate solutions -- then clustering and filtering to select the best ones. It performed at the level of a median competitive programmer.</p>
-                <p>The newer generation goes further. Models like DeepSeek-Coder and Codestral use recursive RL to improve code quality iteratively. Generate solutions, run them against test suites, reinforce the approaches that work. Each iteration, the model writes tighter code.</p>
-                <p>The recursive element is most visible in agentic coding systems like Devin, Cursor, and Claude Code. These systems generate code, execute it, observe errors, fix them, and iterate. The loop runs at inference time -- each debugging cycle teaches the system (within the context window) what works for this specific problem.</p>
-                <div class="callout">
-                    <p>SWE-bench results tell the story: state-of-the-art agents now resolve 50%+ of real GitHub issues autonomously. A year ago, the best hit 15%. Recursive inference-time reasoning is the primary driver of that improvement.</p>
-                </div>
-            </div>
-        </div>
+        <h1>Where <span class="accent">infinite context</span> actually matters.</h1>
+        <p class="hero-sub">The promise of RLMs isn't just "process longer texts." It's enabling tasks that were previously impossible because they require dense reasoning over inputs that exceed any context window. Here's where that changes things.</p>
     </section>
 
     <hr class="divider">
 
-    <!-- Math -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Formal verification</span>
-                <h2>Mathematics and theorem proving</h2>
+                <span class="split-label">Deep research</span>
+                <h2>Reasoning over massive document corpora</h2>
             </div>
             <div>
-                <p>AlphaProof (DeepMind, 2024) earned a silver medal at the International Mathematical Olympiad. It solved 4 of 6 problems, including one that only 5 human contestants solved.</p>
-                <p>The approach: train a model to generate candidate proofs in Lean 4 (a formal proof language), verify them automatically, and train on the successful proofs. The formal verifier guarantees correctness -- if Lean accepts the proof, it's valid. No ambiguity, no reward hacking.</p>
-                <p>This is recursive learning in its purest form. The model proposes, the verifier disposes, the survivors reproduce. Darwin would approve.</p>
-                <p>The broader impact: formal verification of software. If recursive learning can prove mathematical theorems, it can prove properties of code -- that a function never returns null, that a system never deadlocks, that a protocol is secure. Companies like Leanprover and Hoskinson Center are actively pursuing this.</p>
+                <p>The paper benchmarks RLMs on BrowseComp-Plus, a deep research task that requires reasoning over 1,000 documents to answer multi-hop questions. The documents contain gold evidence, supporting evidence, and hard negatives -- mimicking real-world research scenarios where you have a huge corpus and need to find and connect the relevant pieces.</p>
+                <p>At 6-11 million tokens of input, no standard model can even fit this in context. RAG helps for simple lookups but fails when the answer requires synthesizing information across multiple documents that wouldn't all appear in a top-k retrieval. The RLM approach lets the model systematically examine the corpus, identify relevant documents, and recursively reason over their connections.</p>
+                <p>The business case is obvious: any organization sitting on thousands of reports, memos, research papers, or technical documents could use RLMs to answer questions that span their entire knowledge base. Not retrieval -- actual dense reasoning across everything.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Science -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Physical world</span>
-                <h2>Scientific discovery</h2>
+                <span class="split-label">Code</span>
+                <h2>Understanding entire repositories</h2>
             </div>
             <div>
-                <p>Drug discovery was an early win. AlphaFold 2 (DeepMind, 2020) didn't use recursive learning in the strict sense, but AlphaFold 3 and its successors increasingly do -- using model outputs to generate training data for the next round of structure prediction.</p>
-                <p>Materials science is following the same trajectory. Google's GNoME project used recursive active learning to discover 2.2 million new crystal structures -- generating candidate structures, simulating their properties, and training on the successful predictions to generate better candidates.</p>
-                <p>The pattern: anywhere you have a simulator (physics engine, molecular dynamics, climate model) that can verify predictions, recursive learning can accelerate discovery by orders of magnitude. The model proposes experiments; the simulator runs them; the model learns from the results.</p>
+                <p>The LongBench-v2 CodeQA benchmark tests exactly this: given a code repository, answer questions that require understanding the relationships between multiple files. This is the kind of task that developers do every day when onboarding to a new codebase or debugging cross-module issues.</p>
+                <p>Current AI coding assistants typically work file-by-file or with a handful of files in context. RLMs can process an entire repository as a single prompt, recursively examining files, tracing dependencies, and building up an understanding of the codebase structure before answering specific questions about it.</p>
+                <p>The model writes code to explore the repo -- listing files, reading specific functions, tracing imports -- using the same kind of systematic exploration a human developer would. But it does it across the entire codebase simultaneously, with sub-RLMs processing individual files in parallel.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- Robotics -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Embodied</span>
-                <h2>Robotics</h2>
+                <span class="split-label">Legal</span>
+                <h2>Contract analysis at scale</h2>
             </div>
             <div>
-                <p>Sim-to-real transfer is recursive learning applied to the physical world. Train a policy in simulation (where you can run millions of episodes cheaply), transfer to a real robot, collect failure data, improve the simulation, retrain. Each cycle narrows the gap between sim and real.</p>
-                <p>OpenAI's early work with the Rubik's cube hand (2019) demonstrated this. More recently, Figure, 1X, and Physical Intelligence are using similar loops for general manipulation. The recursive element: real-world failures improve the simulator, which produces better training data, which produces better real-world behavior.</p>
-                <p>The bottleneck isn't the learning algorithm. It's the simulator fidelity. As physics engines get better (partly through AI -- recursive again), the sim-to-real gap shrinks, and the recursive loop spins faster.</p>
+                <p>Consider a due diligence review: hundreds of contracts, each dozens of pages, and you need to identify every instance of a specific clause type, compare terms across all agreements, and flag inconsistencies. This is O(n) or O(n^2) work depending on whether you need cross-document comparison.</p>
+                <p>Standard models can summarize individual contracts fine. But "find every non-compete clause across 500 employment agreements and identify which ones have terms inconsistent with the master agreement" requires dense processing of every document and comparison across all of them. That's exactly the pattern RLMs excel at -- decompose into individual documents, extract relevant clauses via sub-RLMs, then aggregate and compare.</p>
+                <p>The OOLONG benchmark results are directly relevant here. OOLONG requires transforming each chunk of input semantically and then aggregating -- precisely what contract analysis demands. RLMs outperform vanilla GPT-5 by 28.4% on this class of task.</p>
             </div>
         </div>
     </section>
 
-    <hr class="divider">
-
-    <!-- AI infra -->
     <section class="section fade-in">
         <div class="split">
             <div>
-                <span class="split-label">Meta-recursive</span>
-                <h2>AI improving AI</h2>
+                <span class="split-label">Books and long-form</span>
+                <h2>Processing book-length texts</h2>
             </div>
             <div>
-                <p>This is the one that makes people nervous. And rightly so.</p>
-                <p>AlphaEvolve discovered better matrix multiplication algorithms for TPUs. That's AI improving the hardware efficiency of AI training. Google is using these optimizations in production.</p>
-                <p>AI is also increasingly used to design neural architectures, optimize hyperparameters, write training code, and debug training runs. The human ML engineer is still in the loop, but their role is shifting from "design the system" to "evaluate the system's proposals."</p>
-                <p>The recursive startup ecosystem (January 2026 NYT reporting): companies named literally "Recursive" and "Ricursive" are building systems whose explicit purpose is to improve AI without human involvement. Whether this is exciting or terrifying depends on your priors.</p>
-                <div class="callout-teal callout">
-                    <p>The honest assessment: we're in the early innings of meta-recursive improvement. Current systems improve specific components (kernels, architectures, data pipelines). We're not yet at "AI designs a fundamentally better AI from scratch." But the trajectory is clear, and it's accelerating.</p>
-                </div>
+                <p>A typical novel is 80,000-100,000 words, roughly 100K-130K tokens. That fits (barely) in some context windows. But actually reasoning over an entire book -- tracking character arcs, identifying thematic patterns, cross-referencing plot points across chapters -- degrades rapidly even within window limits.</p>
+                <p>RLMs make book-length analysis practical. The model can recursively process chapters, extract structured information from each, and then reason over the extracted data. For literary analysis, this means genuine engagement with the full text rather than a lossy summary. For nonfiction, it means synthesizing arguments and evidence across an entire work.</p>
+                <p>Scale this up to multiple books -- comparative literature analysis, regulatory code spanning thousands of pages, historical archives -- and you're in territory where no other approach comes close.</p>
             </div>
         </div>
     </section>
 
-    <section class="section fade-in" style="text-align: center; padding: 3rem 0;">
-        <p style="color: var(--text-dim); margin: 0 auto;">Next: <a href="resources.html" style="font-size: 1.1rem;">Resources -- where to go from here</a></p>
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">Agent frameworks</span>
+                <h2>Integration with Google ADK and other platforms</h2>
+            </div>
+            <div>
+                <p>RLMs are designed as a drop-in replacement for standard LLM completion calls. The API surface is identical: <code>rlm.completion(prompt, model)</code> instead of <code>llm.completion(prompt, model)</code>. This makes integration with existing agent frameworks straightforward.</p>
+                <p>The Google ADK (Agent Development Kit) community has already started discussing RLM integration for building agents that need to process long contexts. The pattern fits naturally: any ADK agent that currently hits context limits on long inputs could swap in an RLM completion call and immediately gain the ability to handle 10M+ token inputs.</p>
+                <p>The broader implication: as agent systems take on longer-horizon tasks (multi-day research, ongoing monitoring, large-scale analysis), the inputs they accumulate will routinely exceed any context window. RLMs provide the plumbing to handle this without rearchitecting the agent.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
+        <div class="split">
+            <div>
+                <span class="split-label">The pattern</span>
+                <h2>When to reach for an RLM</h2>
+            </div>
+            <div>
+                <p>RLMs are not always the right tool. The paper is honest about this: for short inputs within the model's effective context window, vanilla LLM calls are simpler and sometimes better. There's a crossover point around 2^14 tokens (16K) where RLMs start outperforming.</p>
+                <p>Use an RLM when:</p>
+                <ul>
+                    <li>Your input exceeds the model's context window</li>
+                    <li>Your input fits in context but the task requires dense reasoning over most of it (not just finding one thing)</li>
+                    <li>The task involves cross-referencing or comparing multiple sections of the input</li>
+                    <li>You need to scale to millions of tokens</li>
+                </ul>
+                <p>Don't bother with an RLM when:</p>
+                <ul>
+                    <li>Your input is short and the task is straightforward</li>
+                    <li>You just need to find one specific piece of information (RAG is cheaper)</li>
+                    <li>Latency is more important than quality (RLMs add wall-clock time from multiple calls)</li>
+                </ul>
+            </div>
+        </div>
     </section>
 
 </div>
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
 </footer>
 
 <script>
