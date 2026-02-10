@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Decompose-Recurse-Aggregate Pattern Explained | rlm.md</title>
+    <meta name="description" content="A practitioner's guide to the core algorithmic pattern behind Recursive Language Models. How decompose-recurse-aggregate mirrors expert human problem solving and enables dense reasoning over arbitrarily long inputs.">
+    <meta name="keywords" content="decompose recurse aggregate, DRA pattern, RLM, recursive language models, divide and conquer, algorithmic reasoning">
+    <link rel="canonical" href="https://rlm.md/blog/decompose-recurse-aggregate-pattern.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/decompose-recurse-aggregate-pattern.html">
+    <meta property="og:title" content="The Decompose-Recurse-Aggregate Pattern Explained">
+    <meta property="og:description" content="A practitioner's guide to the core algorithmic pattern behind Recursive Language Models.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The Decompose-Recurse-Aggregate Pattern Explained">
+    <meta name="twitter:description" content="How decompose-recurse-aggregate mirrors expert human problem solving.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>The Decompose-Recurse-Aggregate Pattern Explained</h1>
+        <p class="lead">A practitioner's guide to the core algorithmic pattern behind RLMs -- and why it mirrors how expert humans solve complex problems.</p>
+    </div>
+
+    <div class="blog-meta">February 2026</div>
+
+    <div class="blog-body fade-in">
+
+        <p>Every significant advance in computing has a core pattern at its heart. MapReduce had map and reduce. Neural networks have forward and backward passes. Recursive Language Models have <strong>decompose-recurse-aggregate</strong> -- a three-phase pattern that is deceptively simple to describe and remarkably powerful in practice.</p>
+
+        <p>Understanding this pattern is not just academic. It is the key to understanding why RLMs can solve problems that standard LLMs cannot, and it provides a framework for reasoning about which tasks will benefit most from the recursive approach.</p>
+
+        <h2>The three phases</h2>
+
+        <p><strong>Decompose.</strong> The model examines the task and the input, then breaks both into smaller pieces. This is not a fixed chunking strategy -- the model decides how to decompose based on the structure of the specific problem. A legal document review might decompose by section. A codebase analysis might decompose by module. A multi-document comparison might decompose by document pairs. The decomposition is semantic, not mechanical.</p>
+
+        <p>This is where the REPL environment becomes critical. The input is stored as a variable that the model can inspect programmatically. It can read the first thousand characters to understand the structure, then write code to split the input intelligently. It might parse headers, detect natural boundaries, or use domain-specific heuristics. The decomposition strategy itself is generated by the model, tailored to the task at hand.</p>
+
+        <p><strong>Recurse.</strong> The model invokes itself on each sub-problem. This is a genuine recursive call -- the sub-invocation gets its own fresh context window, its own REPL environment, and the relevant slice of input. It does not share state with the parent call except through the explicit return value.</p>
+
+        <p>The critical property here is depth. If a sub-problem is still too large or too complex for a single invocation, the recursive call can itself decompose and recurse further. This creates a tree of processing where the depth adapts to the actual difficulty of the problem. A simple extraction task might need only one level of recursion. A task requiring pairwise comparison of every section in a long document might need three or four levels.</p>
+
+        <p><strong>Aggregate.</strong> The model collects the results from its recursive sub-calls and combines them into a final answer. Again, this is not a fixed operation. The aggregation strategy depends on the task: it might be concatenation, majority voting, merging partial results with conflict resolution, or a more complex synthesis that requires the model to reason about the relationships between sub-results.</p>
+
+        <h2>Why this works: the computer science perspective</h2>
+
+        <p>The decompose-recurse-aggregate pattern is a generalization of divide-and-conquer, one of the most fundamental algorithmic strategies in computer science. Merge sort, quicksort, the Fast Fourier Transform, Strassen's matrix multiplication -- all follow this pattern. The power comes from the ability to reduce a problem of size n to multiple problems of size n/k, solve those independently, and combine the results in less work than solving the original problem directly.</p>
+
+        <p>For LLMs, the "work" at each step is bounded by the context window and the model's computational depth (number of layers). A standard Transformer can do O(L) sequential reasoning steps where L is the number of layers. If the task requires O(n) steps where n exceeds L, the model simply cannot solve it in a single pass. But with recursive decomposition, the model can solve tasks requiring O(n log n) or even O(n^2) total computation by distributing the work across multiple invocations, each operating within its computational budget.</p>
+
+        <p>This is why the OOLONG-Pairs benchmark is so illuminating. The task requires O(n^2) pairwise comparisons. No amount of context window expansion will help a fixed-depth Transformer solve this, because the bottleneck is not how much text the model can see but how many sequential comparisons it can make. An RLM writes a nested loop: the outer loop iterates over chunks, and for each chunk, an inner loop compares it against all other chunks via recursive sub-calls. The total compute scales quadratically, but each individual call stays within bounds.</p>
+
+        <h2>The human parallel</h2>
+
+        <p>There is a reason this pattern feels intuitive: it mirrors how skilled humans handle complex tasks. Consider a senior attorney conducting due diligence on a large contract. They do not read the entire 500-page document from start to finish and then produce their analysis. Instead, they:</p>
+
+        <p><strong>Decompose:</strong> Scan the table of contents, identify the major sections (representations, covenants, indemnification, schedules), and prioritize by risk.</p>
+
+        <p><strong>Recurse:</strong> Work through each section individually, and within each section, drill down into sub-clauses that raise flags. Some sub-clauses reference other sections, triggering further drill-downs.</p>
+
+        <p><strong>Aggregate:</strong> Compile findings from each section into a memo, resolving cross-references, identifying conflicts between sections, and producing a risk assessment that synthesizes everything.</p>
+
+        <p>A junior attorney might try to hold the entire document in their head and produce the analysis in one pass. The senior attorney knows that the task exceeds working memory capacity and uses an external structure (notes, outlines, cross-reference tables) to extend their cognitive reach. RLMs formalize this same insight: use external state and recursive processing to extend beyond the limits of what any single pass can accomplish.</p>
+
+        <h2>Implementation details that matter</h2>
+
+        <p>The DRA pattern sounds straightforward in theory. The engineering challenge lies in several details that separate a naive implementation from an effective one.</p>
+
+        <p><strong>Decomposition granularity.</strong> Splitting the input into too many small chunks creates overhead and loses cross-chunk context. Splitting into too few large chunks risks exceeding the effective capacity of each sub-call. The MIT paper finds that the model learns reasonable decomposition strategies through post-training on as few as 1,000 examples. The model adapts its chunking to the task: it uses larger chunks for extraction tasks (where context preservation matters) and smaller chunks for comparison tasks (where each chunk needs to be processed against many others).</p>
+
+        <p><strong>State passing.</strong> Each recursive call needs enough context to perform its sub-task, but not so much context that the benefits of decomposition are lost. The REPL environment handles this cleanly: the parent call can set up variables that child calls inherit, and child calls return structured results that the parent can parse. This is a well-defined interface -- not a vague "shared context" but explicit variable passing, like function arguments and return values in a programming language.</p>
+
+        <p><strong>Depth control.</strong> Unbounded recursion is a risk. In practice, RLM implementations set a maximum recursion depth (typically 3-5 levels) and a maximum number of total sub-calls. The model can also terminate recursion early when it determines that the sub-problem is small enough to solve directly. This mirrors the base case in recursive algorithms: at some point, the problem is small enough to solve without further decomposition.</p>
+
+        <p><strong>Parallel execution.</strong> Independent sub-calls can be executed in parallel, which is important for both latency and throughput. The Google Agent Development Kit implementation, for example, supports parallel sub-calls by default. This means that a task decomposed into ten independent chunks can be processed roughly ten times faster than sequential execution, limited only by available compute.</p>
+
+        <h2>When DRA does not help</h2>
+
+        <p>Not every task benefits from decompose-recurse-aggregate. The pattern is most valuable when the input is large relative to the model's effective context capacity and the task requires reasoning over distributed information. It is less useful -- and can even be counterproductive -- in scenarios where:</p>
+
+        <p>The task requires holistic judgment that cannot be decomposed. Some creative writing tasks, for instance, depend on a unified stylistic vision that emerges from considering the entire context simultaneously. Decomposing the input might destroy the very property the task requires.</p>
+
+        <p>The input is short enough that the model can handle it in a single pass. Adding recursion to a task that fits comfortably in the context window introduces unnecessary overhead and potential information loss at chunk boundaries.</p>
+
+        <p>The task is purely retrieval-based. If you just need to find one piece of information in a large document, a simple search or RAG pipeline is faster and more reliable than recursive decomposition.</p>
+
+        <p>Understanding when to use DRA and when to skip it is part of what makes RLMs effective. The post-trained models in the MIT work learn this distinction: they apply recursion when the task requires it and process directly when it does not. The pattern is a tool, not a mandate.</p>
+
+        <h2>Looking ahead</h2>
+
+        <p>The decompose-recurse-aggregate pattern is likely to become one of the standard algorithmic patterns in the AI practitioner's toolkit, alongside attention, retrieval, and chain-of-thought. Its power lies in its generality: any task that can be expressed as a divide-and-conquer problem (and most complex tasks can) is a candidate for this approach.</p>
+
+        <p>As tooling matures -- DSPy already supports it natively, and several agent frameworks are adding built-in DRA primitives -- the barrier to using this pattern will drop. The question will shift from "how do I implement recursive processing" to "what decomposition strategy works best for this specific task type." That is the kind of question that drives genuine engineering progress.</p>
+
+        <div class="ref-list">
+            <h3>References</h3>
+            <ol>
+                <li>Zhang, A., Kraska, T., & Khattab, O. (2025). Recursive Language Models. arXiv:2512.24601. MIT OASYS Lab.</li>
+                <li>Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C. (2009). Introduction to Algorithms, 3rd Edition. MIT Press. Chapter 4: Divide-and-Conquer.</li>
+                <li>Dean, J. & Ghemawat, S. (2004). MapReduce: Simplified Data Processing on Large Clusters. OSDI 2004.</li>
+                <li>Khattab, O. et al. (2023). DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines. arXiv:2310.03714.</li>
+                <li>Google. (2025). Agent Development Kit: RLM Support Documentation. cloud.google.com/agent-development-kit.</li>
+            </ol>
+        </div>
+
+    </div>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

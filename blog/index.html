@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog -- Recursive Language Models | rlm.md</title>
+    <meta name="description" content="Articles and analysis on Recursive Language Models, AI architecture, inference-time scaling, and the future of long-context reasoning.">
+    <meta name="keywords" content="recursive language models blog, RLM articles, AI architecture, long context, inference scaling">
+    <link rel="canonical" href="https://rlm.md/blog/">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rlm.md/blog/">
+    <meta property="og:title" content="Blog -- Recursive Language Models | rlm.md">
+    <meta property="og:description" content="Articles and analysis on Recursive Language Models, AI architecture, and the future of long-context reasoning.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog -- Recursive Language Models | rlm.md">
+    <meta name="twitter:description" content="Articles and analysis on Recursive Language Models and AI architecture.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <div class="page-header fade-in">
+        <h1>Blog</h1>
+        <p class="lead">Analysis, commentary, and technical deep dives on Recursive Language Models and the shifting landscape of AI architecture.</p>
+    </div>
+
+    <div class="card-grid stagger fade-in">
+
+        <a href="why-context-windows-are-the-wrong-abstraction.html" class="card" style="--i:0; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>Why Context Windows Are the Wrong Abstraction</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">The industry spent five years making context windows bigger. RLMs suggest the entire framing was wrong from the start.</p>
+        </a>
+
+        <a href="decompose-recurse-aggregate-pattern.html" class="card" style="--i:1; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>The Decompose-Recurse-Aggregate Pattern Explained</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">A practitioner's guide to the core algorithmic pattern behind Recursive Language Models -- and why it mirrors how expert humans solve complex problems.</p>
+        </a>
+
+        <a href="rlm-vs-rag-retrieval-augmented-generation.html" class="card" style="--i:2; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>RLM vs RAG: Two Approaches to the Long-Context Problem</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">Retrieval-Augmented Generation dominated the long-context conversation for three years. RLMs take a fundamentally different path. Here is where each one wins.</p>
+        </a>
+
+        <a href="inference-time-compute-scaling.html" class="card" style="--i:3; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>Inference-Time Compute: The New Scaling Frontier</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">Training-time scaling dominated the last decade of AI progress. The next decade belongs to inference-time scaling -- and RLMs are a leading example of why.</p>
+        </a>
+
+        <a href="real-world-applications-recursive-language-models.html" class="card" style="--i:4; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>Real-World Applications for Recursive Language Models</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">From legal discovery to genomics, the tasks where RLMs create the largest performance gap over standard LLMs.</p>
+        </a>
+
+        <a href="small-models-big-contexts-rlm-efficiency.html" class="card" style="--i:5; text-decoration:none; border-bottom:none;">
+            <span class="card-number">February 2026</span>
+            <h3>Small Models, Big Contexts: The Efficiency Case for RLMs</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">How an 8B parameter model post-trained on 1,000 samples can rival GPT-5 on long-context tasks -- and what that means for cost and deployment.</p>
+        </a>
+
+    </div>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

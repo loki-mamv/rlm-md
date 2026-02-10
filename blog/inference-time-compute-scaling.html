@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inference-Time Compute: The New Scaling Frontier | rlm.md</title>
+    <meta name="description" content="Training-time scaling dominated the last decade of AI progress. The next decade belongs to inference-time scaling, and RLMs are a leading example of why adaptive compute at inference matters more than model size.">
+    <meta name="keywords" content="inference-time compute, scaling laws, RLM, recursive language models, test-time compute, chain of thought, adaptive computation">
+    <link rel="canonical" href="https://rlm.md/blog/inference-time-compute-scaling.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/inference-time-compute-scaling.html">
+    <meta property="og:title" content="Inference-Time Compute: The New Scaling Frontier">
+    <meta property="og:description" content="Training-time scaling dominated the last decade. The next decade belongs to inference-time scaling.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Inference-Time Compute: The New Scaling Frontier">
+    <meta name="twitter:description" content="Training-time scaling dominated the last decade. The next decade belongs to inference-time scaling.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Inference-Time Compute: The New Scaling Frontier</h1>
+        <p class="lead">Training-time scaling dominated the last decade of AI progress. The next decade belongs to inference-time scaling -- and RLMs are a leading example of why.</p>
+    </div>
+
+    <div class="blog-meta">February 2026</div>
+
+    <div class="blog-body fade-in">
+
+        <p>For roughly eight years, the dominant strategy in AI was straightforward: make the model bigger, train it on more data, and performance improves. This was the era of scaling laws, first articulated by Kaplan et al. at OpenAI in 2020 and refined by Hoffmann et al. at DeepMind with the Chinchilla paper in 2022. The prescription was clear -- given a fixed compute budget, there is an optimal balance between model size and training data, and following that prescription reliably produces better models.</p>
+
+        <p>That strategy has not stopped working, but it has started yielding diminishing returns. Training runs for frontier models now cost hundreds of millions of dollars. The datasets are approaching the limits of available high-quality text. And the gains from each doubling of compute are shrinking. The community has been searching for the next scaling axis, and there is growing consensus that it lies not in training but in inference.</p>
+
+        <h2>What inference-time scaling means</h2>
+
+        <p>The core idea is simple: instead of making the model smarter by training it longer, make it smarter by letting it think longer on each problem. A fixed model, given more computation at inference time, should be able to solve harder problems than the same model given less computation.</p>
+
+        <p>This is not a new observation. Chain-of-thought prompting, introduced by Wei et al. in 2022, was an early demonstration: by asking the model to show its reasoning step by step, you effectively increase the amount of computation (measured in generated tokens) between the question and the answer. The model uses the intermediate tokens as scratch space for sequential reasoning that it cannot perform in a single forward pass.</p>
+
+        <p>More recently, OpenAI's o1 and o3 models have made inference-time scaling a product feature. These models are trained to produce extended reasoning traces before answering, and their performance on difficult reasoning tasks scales with the length of the trace. Give o3 more time to think (more tokens in its reasoning chain), and it solves more problems correctly. The relationship is reliable and roughly log-linear: doubling the inference compute yields a consistent improvement in accuracy.</p>
+
+        <h2>RLMs as inference-time scaling</h2>
+
+        <p>Recursive Language Models fit squarely in this paradigm, but they push it in a different direction than chain-of-thought or extended reasoning traces. Where those approaches scale computation depth (more sequential reasoning steps within a single context), RLMs scale computation breadth and depth simultaneously through recursive decomposition.</p>
+
+        <p>A standard chain-of-thought approach lets the model think for more steps, but it still operates within a single context window. The reasoning happens in a linear sequence: step 1, step 2, step 3, and so on. The model cannot go back and re-examine earlier input based on what it discovers later (except by scrolling through its own context, which is expensive and unreliable at scale).</p>
+
+        <p>An RLM, by contrast, can adaptively allocate compute based on what it discovers during processing. If section A of the input turns out to be straightforward, the model processes it in one call. If section B is complex and requires cross-referencing with section C, the model spawns additional sub-calls, each getting fresh context and fresh reasoning capacity. The total compute is proportional to the actual difficulty of the problem, not a fixed budget determined before processing begins.</p>
+
+        <p>This adaptive allocation is a key distinction. In chain-of-thought scaling, you typically set a compute budget in advance (a maximum number of reasoning tokens) and the model uses as much of it as it needs. In RLM scaling, the model dynamically decides how much compute to allocate based on what it finds in the input. Simple tasks get minimal recursion. Complex tasks get deep recursion with many sub-calls. The compute scales with the problem, not with a predetermined budget.</p>
+
+        <h2>The economics of inference-time scaling</h2>
+
+        <p>Training-time scaling has a brutal cost structure. You pay the full training cost up front, amortized over all future queries. The marginal cost of serving each query is relatively low (just inference compute), but the fixed cost is enormous and must be committed before you know how the model will perform.</p>
+
+        <p>Inference-time scaling inverts this. The model's training cost is fixed (and can be modest -- RLM-Qwen3-8B was post-trained on just 1,000 samples). The variable cost shows up at inference, where harder tasks consume more compute. This has several attractive properties:</p>
+
+        <p><strong>Pay-per-difficulty.</strong> Simple tasks are cheap. Hard tasks are expensive. You only pay for the compute that a specific problem actually requires. This is more efficient than training a model that is over-provisioned for easy tasks and under-provisioned for hard ones.</p>
+
+        <p><strong>Continuous improvement without retraining.</strong> As inference-time techniques improve (better decomposition strategies, more efficient aggregation, smarter recursion depth control), the same base model gets better. You do not need to retrain; you need to improve the inference-time algorithm.</p>
+
+        <p><strong>Scalable quality.</strong> If a customer needs a higher quality result, they can simply authorize more inference compute. This creates a natural product tier: fast answers for routine queries, deep answers for complex ones. The same model serves both tiers, with the quality difference coming entirely from inference-time allocation.</p>
+
+        <h2>The three axes of inference-time compute</h2>
+
+        <p>It is useful to think about inference-time scaling along three axes, each representing a different way to spend compute at inference time.</p>
+
+        <p><strong>Depth: extended reasoning.</strong> This is the chain-of-thought / o1 axis. The model generates more tokens of reasoning before producing an answer. Each additional token is a step of sequential computation. This scales the model's ability to perform multi-step logical reasoning, mathematical proofs, and planning tasks.</p>
+
+        <p><strong>Breadth: parallel exploration.</strong> This is the best-of-n / self-consistency axis. The model generates multiple candidate answers and selects the best one (by voting, by verification, or by a separate judge model). Each additional candidate increases the probability of finding a correct answer. This scales the model's reliability on tasks where the correct approach is uncertain.</p>
+
+        <p><strong>Structure: recursive decomposition.</strong> This is the RLM axis. The model breaks the problem into sub-problems, processes each independently, and aggregates the results. This scales the model's ability to handle problems that are larger or more complex than any single invocation can manage. Unlike depth and breadth, structural scaling adapts the compute topology to the problem structure.</p>
+
+        <p>These axes are complementary, not competing. An RLM can use chain-of-thought reasoning within each recursive sub-call (combining depth and structure). It can generate multiple candidate decompositions and select the best one (combining breadth and structure). The most powerful inference-time systems will likely operate along all three axes simultaneously, allocating compute adaptively across depth, breadth, and structure based on the specific problem.</p>
+
+        <h2>What the benchmarks show</h2>
+
+        <p>The MIT results provide concrete evidence for inference-time scaling through recursive structure. RLM-Qwen3-8B -- an 8B parameter model, roughly 50x smaller than frontier models -- achieves performance that approaches GPT-5 on three out of four long-context benchmarks. On the fourth (OOLONG-Pairs), it dramatically outperforms GPT-5.</p>
+
+        <p>The key variable is not model size but inference-time structure. The 8B model is not smarter than GPT-5 in any meaningful sense. It has worse representations, less world knowledge, and weaker single-pass reasoning. But when equipped with recursive processing, it can bring effective compute to bear on the problem that exceeds what GPT-5's single forward pass can muster.</p>
+
+        <p>This is the promise of inference-time scaling: performance that scales with the compute you are willing to spend per query, not the compute you spent on training. A smaller, cheaper model with a good inference-time strategy can match or exceed a larger, more expensive model with a naive inference strategy.</p>
+
+        <h2>Implications for the industry</h2>
+
+        <p>If inference-time scaling continues to prove effective, several consequences follow.</p>
+
+        <p>First, <strong>the model size race becomes less important</strong>. Organizations will compete less on who has the largest model and more on who has the best inference-time algorithms. This is good for competition: training a 1T+ parameter model requires billions of dollars, but developing novel inference-time strategies requires primarily research talent and modest compute for experimentation.</p>
+
+        <p>Second, <strong>deployment becomes more flexible</strong>. Smaller models with inference-time scaling can run in more environments (edge devices, cost-constrained deployments, privacy-sensitive settings) while still achieving high quality on complex tasks by selectively applying additional compute when needed.</p>
+
+        <p>Third, <strong>the API pricing model changes</strong>. Current API pricing is primarily based on tokens in and tokens out. Inference-time scaling introduces a third dimension: compute per query. Providers will need pricing models that account for the variable cost of recursive processing, extended reasoning, and multi-candidate generation. Some already charge per "reasoning token"; RLMs may require pricing per "recursive depth" or "sub-call count."</p>
+
+        <p>The shift from training-time to inference-time scaling is not abrupt. Training still matters -- you need a good base model to run inference-time algorithms on. But the marginal dollar invested in inference-time research and infrastructure is increasingly yielding more capability improvement than the marginal dollar invested in larger training runs. RLMs are one of the clearest demonstrations of this shift, and the trend shows no signs of reversing.</p>
+
+        <div class="ref-list">
+            <h3>References</h3>
+            <ol>
+                <li>Zhang, A., Kraska, T., & Khattab, O. (2025). Recursive Language Models. arXiv:2512.24601. MIT OASYS Lab.</li>
+                <li>Kaplan, J., et al. (2020). Scaling Laws for Neural Language Models. arXiv:2001.08361. OpenAI.</li>
+                <li>Hoffmann, J., et al. (2022). Training Compute-Optimal Large Language Models. arXiv:2203.15556. DeepMind.</li>
+                <li>Wei, J., et al. (2022). Chain-of-Thought Prompting Elicits Reasoning in Large Language Models. NeurIPS 2022.</li>
+                <li>Snell, C., et al. (2024). Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters. arXiv:2408.03314.</li>
+                <li>OpenAI. (2024). Learning to Reason with LLMs. openai.com/index/learning-to-reason-with-llms.</li>
+                <li>Wang, X., et al. (2023). Self-Consistency Improves Chain of Thought Reasoning in Language Models. ICLR 2023.</li>
+            </ol>
+        </div>
+
+    </div>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
