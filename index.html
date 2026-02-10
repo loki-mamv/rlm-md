@@ -32,6 +32,7 @@
         <li><a href="techniques.html">Techniques</a></li>
         <li><a href="research.html">Research</a></li>
         <li><a href="applications.html">Applications</a></li>
+        <li><a href="rlm-vs-llm.html">RLM vs LLM</a></li>
         <li><a href="resources.html">Resources</a></li>
     </ul>
 </nav>
@@ -66,81 +67,92 @@
     <section class="section fade-in">
         <span class="split-label">The key difference</span>
         <h2>LLM vs RLM</h2>
-        <div class="compare-grid" style="margin-top: 2.5rem;">
-            <div class="compare-col compare-llm">
-                <div class="compare-header">
-                    <span class="compare-icon">⬛</span>
-                    <h3>Large Language Model</h3>
-                    <span class="compare-tag compare-tag--dim">Traditional</span>
+        <p style="color: var(--text-muted); margin-bottom: 2.5rem; max-width: 50ch;">Two fundamentally different approaches to processing long inputs. <a href="rlm-vs-llm.html">Read the full comparison →</a></p>
+
+        <div class="arch-compare">
+            <div class="arch-col">
+                <div class="arch-label">Large Language Model</div>
+                <div class="arch-diagram">
+                    <svg viewBox="0 0 280 320" fill="none" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
+                        <!-- Input block -->
+                        <rect x="40" y="10" width="200" height="44" rx="6" fill="#16161f" stroke="#2a2a3a" stroke-width="1"/>
+                        <text x="140" y="28" text-anchor="middle" fill="#8a8698" font-size="10" font-family="Space Grotesk">272K tokens</text>
+                        <text x="140" y="42" text-anchor="middle" fill="#5a5668" font-size="9" font-family="JetBrains Mono">entire input</text>
+                        <!-- Arrow down -->
+                        <line x1="140" y1="54" x2="140" y2="90" stroke="#5a5668" stroke-width="1" stroke-dasharray="4,3"/>
+                        <polygon points="135,88 140,96 145,88" fill="#5a5668"/>
+                        <!-- Model block (single) -->
+                        <rect x="50" y="98" width="180" height="80" rx="8" fill="#16161f" stroke="#b05a6a" stroke-width="1.5" stroke-opacity="0.6"/>
+                        <text x="140" y="130" text-anchor="middle" fill="#e0dcd4" font-size="12" font-family="Space Grotesk" font-weight="600">LLM</text>
+                        <text x="140" y="148" text-anchor="middle" fill="#b05a6a" font-size="9" font-family="JetBrains Mono">single forward pass</text>
+                        <text x="140" y="164" text-anchor="middle" fill="#5a5668" font-size="8" font-family="JetBrains Mono">attention over ALL tokens</text>
+                        <!-- Arrow down -->
+                        <line x1="140" y1="178" x2="140" y2="214" stroke="#5a5668" stroke-width="1" stroke-dasharray="4,3"/>
+                        <polygon points="135,212 140,220 145,212" fill="#5a5668"/>
+                        <!-- Warning -->
+                        <text x="200" y="200" fill="#b05a6a" font-size="9" font-family="JetBrains Mono" opacity="0.8">⚠ degrades</text>
+                        <!-- Output block -->
+                        <rect x="60" y="222" width="160" height="40" rx="6" fill="#16161f" stroke="#b05a6a" stroke-width="1" stroke-opacity="0.4"/>
+                        <text x="140" y="246" text-anchor="middle" fill="#8a8698" font-size="10" font-family="Space Grotesk">Output</text>
+                        <!-- Quality indicator -->
+                        <rect x="70" y="272" width="140" height="6" rx="3" fill="#1a1a24"/>
+                        <rect x="70" y="272" width="50" height="6" rx="3" fill="#b05a6a" opacity="0.7"/>
+                        <text x="140" y="292" text-anchor="middle" fill="#5a5668" font-size="8" font-family="JetBrains Mono">quality on long inputs</text>
+                    </svg>
                 </div>
-                <div class="compare-visual">
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Input</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--full" style="width:100%"></div>
-                        </div>
-                    </div>
-                    <div class="visual-arrow">↓ entire context in one pass</div>
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Model</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--stress" style="width:100%"></div>
-                        </div>
-                    </div>
-                    <div class="visual-arrow visual-arrow--dim">↓ quality degrades</div>
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Output</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--weak" style="width:40%"></div>
-                        </div>
-                    </div>
-                </div>
-                <ul class="compare-list">
-                    <li>Fixed context window (4K–272K tokens)</li>
-                    <li>Performance degrades on long inputs</li>
-                    <li>Processes everything at once</li>
-                    <li>Can't selectively examine content</li>
-                    <li>Cost scales linearly with input size</li>
-                </ul>
             </div>
-            <div class="compare-col compare-rlm">
-                <div class="compare-header">
-                    <span class="compare-icon">◆</span>
-                    <h3>Recursive Language Model</h3>
-                    <span class="compare-tag compare-tag--accent">New paradigm</span>
+            <div class="arch-col arch-col--accent">
+                <div class="arch-label">Recursive Language Model</div>
+                <div class="arch-diagram">
+                    <svg viewBox="0 0 280 320" fill="none" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
+                        <!-- Input block -->
+                        <rect x="40" y="10" width="200" height="44" rx="6" fill="#16161f" stroke="#2a2a3a" stroke-width="1"/>
+                        <text x="140" y="28" text-anchor="middle" fill="#8a8698" font-size="10" font-family="Space Grotesk">10M+ tokens</text>
+                        <text x="140" y="42" text-anchor="middle" fill="#5a5668" font-size="9" font-family="JetBrains Mono">stored as env variable</text>
+                        <!-- Decompose arrow -->
+                        <line x1="140" y1="54" x2="140" y2="70" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.6"/>
+                        <!-- Fan out lines -->
+                        <line x1="140" y1="70" x2="55" y2="90" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <line x1="140" y1="70" x2="140" y2="90" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <line x1="140" y1="70" x2="225" y2="90" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <!-- Chunk label -->
+                        <text x="140" y="82" text-anchor="middle" fill="#c9a84c" font-size="8" font-family="JetBrains Mono" opacity="0.8">decompose</text>
+                        <!-- Model chunks -->
+                        <rect x="20" y="94" width="70" height="50" rx="5" fill="#16161f" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.5"/>
+                        <text x="55" y="116" text-anchor="middle" fill="#c9a84c" font-size="9" font-family="JetBrains Mono">LLM</text>
+                        <text x="55" y="130" text-anchor="middle" fill="#5a5668" font-size="7" font-family="JetBrains Mono">chunk 1</text>
+                        <rect x="105" y="94" width="70" height="50" rx="5" fill="#16161f" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.5"/>
+                        <text x="140" y="116" text-anchor="middle" fill="#c9a84c" font-size="9" font-family="JetBrains Mono">LLM</text>
+                        <text x="140" y="130" text-anchor="middle" fill="#5a5668" font-size="7" font-family="JetBrains Mono">chunk 2</text>
+                        <rect x="190" y="94" width="70" height="50" rx="5" fill="#16161f" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.5"/>
+                        <text x="225" y="116" text-anchor="middle" fill="#c9a84c" font-size="9" font-family="JetBrains Mono">LLM</text>
+                        <text x="225" y="130" text-anchor="middle" fill="#5a5668" font-size="7" font-family="JetBrains Mono">chunk N</text>
+                        <!-- Recurse arrows (loop) -->
+                        <path d="M 265 110 C 275 110, 275 130, 265 130" stroke="#4a9ead" stroke-width="1" fill="none" stroke-opacity="0.5"/>
+                        <polygon points="264,128 267,134 270,128" fill="#4a9ead" opacity="0.5"/>
+                        <text x="268" y="155" fill="#4a9ead" font-size="7" font-family="JetBrains Mono" opacity="0.7">recurse</text>
+                        <!-- Fan in lines -->
+                        <line x1="55" y1="144" x2="140" y2="174" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <line x1="140" y1="144" x2="140" y2="174" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <line x1="225" y1="144" x2="140" y2="174" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.4"/>
+                        <!-- Aggregate label -->
+                        <text x="140" y="168" text-anchor="middle" fill="#c9a84c" font-size="8" font-family="JetBrains Mono" opacity="0.8">aggregate</text>
+                        <!-- Aggregate block -->
+                        <rect x="60" y="178" width="160" height="44" rx="6" fill="#16161f" stroke="#4a9ead" stroke-width="1.5" stroke-opacity="0.6"/>
+                        <text x="140" y="196" text-anchor="middle" fill="#e0dcd4" font-size="10" font-family="Space Grotesk" font-weight="600">REPL Environment</text>
+                        <text x="140" y="212" text-anchor="middle" fill="#4a9ead" font-size="8" font-family="JetBrains Mono">merge partial results</text>
+                        <!-- Arrow down -->
+                        <line x1="140" y1="222" x2="140" y2="248" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.6"/>
+                        <polygon points="135,246 140,254 145,246" fill="#c9a84c" opacity="0.6"/>
+                        <!-- Output block -->
+                        <rect x="60" y="256" width="160" height="40" rx="6" fill="#16161f" stroke="#c9a84c" stroke-width="1" stroke-opacity="0.6"/>
+                        <text x="140" y="280" text-anchor="middle" fill="#c9a84c" font-size="10" font-family="Space Grotesk" font-weight="500">Output</text>
+                        <!-- Quality indicator -->
+                        <rect x="70" y="306" width="140" height="6" rx="3" fill="#1a1a24"/>
+                        <rect x="70" y="306" width="130" height="6" rx="3" fill="#c9a84c" opacity="0.7"/>
+                        <text x="140" y="320" text-anchor="middle" fill="#5a5668" font-size="8" font-family="JetBrains Mono">quality on long inputs</text>
+                    </svg>
                 </div>
-                <div class="compare-visual">
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Input</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--full" style="width:100%"></div>
-                        </div>
-                    </div>
-                    <div class="visual-arrow">↓ decompose into chunks</div>
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Model</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--chunk" style="width:25%"></div>
-                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
-                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
-                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
-                        </div>
-                    </div>
-                    <div class="visual-arrow">↓ recurse &amp; aggregate</div>
-                    <div class="visual-bar-group">
-                        <div class="visual-label">Output</div>
-                        <div class="visual-bar-track">
-                            <div class="visual-bar visual-bar--strong" style="width:95%"></div>
-                        </div>
-                    </div>
-                </div>
-                <ul class="compare-list">
-                    <li>Processes 10M+ tokens effectively</li>
-                    <li>Performance stays strong at any length</li>
-                    <li>Decomposes, recurses, aggregates</li>
-                    <li>Selectively examines relevant context</li>
-                    <li>Often <em>cheaper</em> than brute-force LLM calls</li>
-                </ul>
             </div>
         </div>
     </section>
