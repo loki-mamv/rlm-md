@@ -500,6 +500,7 @@ tr:hover td { color: var(--text); }
   .nav-links.open { display: flex; }
   .nav-links a { font-size: 1.1rem; padding: 0.8rem 1.5rem; }
   .nav-toggle { display: block; }
+  .site-nav { background: rgba(8,8,12,0.98); }
   .timeline-item {
     grid-template-columns: 1fr;
     gap: 0.5rem;
