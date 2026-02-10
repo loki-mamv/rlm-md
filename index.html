@@ -64,6 +64,88 @@
     </section>
 
     <section class="section fade-in">
+        <span class="split-label">The key difference</span>
+        <h2>LLM vs RLM</h2>
+        <div class="compare-grid" style="margin-top: 2.5rem;">
+            <div class="compare-col compare-llm">
+                <div class="compare-header">
+                    <span class="compare-icon">⬛</span>
+                    <h3>Large Language Model</h3>
+                    <span class="compare-tag compare-tag--dim">Traditional</span>
+                </div>
+                <div class="compare-visual">
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Input</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--full" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="visual-arrow">↓ entire context in one pass</div>
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Model</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--stress" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="visual-arrow visual-arrow--dim">↓ quality degrades</div>
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Output</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--weak" style="width:40%"></div>
+                        </div>
+                    </div>
+                </div>
+                <ul class="compare-list">
+                    <li>Fixed context window (4K–272K tokens)</li>
+                    <li>Performance degrades on long inputs</li>
+                    <li>Processes everything at once</li>
+                    <li>Can't selectively examine content</li>
+                    <li>Cost scales linearly with input size</li>
+                </ul>
+            </div>
+            <div class="compare-col compare-rlm">
+                <div class="compare-header">
+                    <span class="compare-icon">◆</span>
+                    <h3>Recursive Language Model</h3>
+                    <span class="compare-tag compare-tag--accent">New paradigm</span>
+                </div>
+                <div class="compare-visual">
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Input</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--full" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="visual-arrow">↓ decompose into chunks</div>
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Model</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--chunk" style="width:25%"></div>
+                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
+                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
+                            <div class="visual-bar visual-bar--chunk" style="width:25%; margin-left:4px"></div>
+                        </div>
+                    </div>
+                    <div class="visual-arrow">↓ recurse &amp; aggregate</div>
+                    <div class="visual-bar-group">
+                        <div class="visual-label">Output</div>
+                        <div class="visual-bar-track">
+                            <div class="visual-bar visual-bar--strong" style="width:95%"></div>
+                        </div>
+                    </div>
+                </div>
+                <ul class="compare-list">
+                    <li>Processes 10M+ tokens effectively</li>
+                    <li>Performance stays strong at any length</li>
+                    <li>Decomposes, recurses, aggregates</li>
+                    <li>Selectively examines relevant context</li>
+                    <li>Often <em>cheaper</em> than brute-force LLM calls</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="section fade-in">
         <span class="split-label">Start here</span>
         <h2>The complete picture, in five parts.</h2>
         <div class="card-grid stagger" style="margin-top: 2rem;">
