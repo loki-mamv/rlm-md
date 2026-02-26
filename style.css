@@ -475,11 +475,12 @@ tr:hover td { color: var(--text); }
 .stagger > * { transition-delay: calc(var(--i, 0) * 80ms); }
 
 /* --- Responsive --- */
-@media (max-width: 768px) {
-  .fade-in {
-    opacity: 1;
-    transform: none;
-    transition: none;
+@media (max-width: 1024px) {
+  .fade-in,
+  .fade-in.visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
   .split {
     grid-template-columns: 1fr;
