@@ -14,4 +14,9 @@
   <url><loc>https://rlm.md/blog/inference-time-compute-scaling.html</loc><lastmod>2026-02-10</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/real-world-applications-recursive-language-models.html</loc><lastmod>2026-02-10</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/small-models-big-contexts-rlm-efficiency.html</loc><lastmod>2026-02-10</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url>
+    <loc>https://rlm.md/blog/agent-to-agent-recursive-knowledge-transfer.html</loc>
+    <lastmod>2026-02-26</lastmod>
+    <priority>0.7</priority>
+  </url>
 </urlset>

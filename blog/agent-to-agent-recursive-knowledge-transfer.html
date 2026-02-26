@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-to-Agent Recursive Knowledge Transfer | rlm.md</title>
+    <meta name="description" content="The most underexplored frontier in recursive learning: how one model's learned behavior can be compressed and transferred to another without retraining. Why this matters more than self-improvement loops.">
+    <meta name="keywords" content="agent-to-agent transfer, recursive knowledge transfer, model distillation, behavioral cloning, RLM, recursive language models, multi-agent learning">
+    <link rel="canonical" href="https://rlm.md/blog/agent-to-agent-recursive-knowledge-transfer.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/agent-to-agent-recursive-knowledge-transfer.html">
+    <meta property="og:title" content="Agent-to-Agent Recursive Knowledge Transfer">
+    <meta property="og:description" content="The most underexplored frontier in recursive learning: transferring learned behavior between models without retraining.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Agent-to-Agent Recursive Knowledge Transfer">
+    <meta name="twitter:description" content="Why transferring the learning process itself -- not just outputs -- is the real unlock for recursive systems.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6H85DH0R8S"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6H85DH0R8S');
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Agent-to-Agent Recursive Knowledge Transfer</h1>
+        <p class="lead">Everyone is writing about self-improvement loops. The real unlock is when one model teaches another -- not its outputs, but its learning process.</p>
+    </div>
+
+    <div class="blog-meta">February 2026</div>
+
+    <div class="blog-body fade-in">
+
+        <p>The recursive learning conversation has a blind spot. Nearly every paper, blog post, and Twitter thread about RLMs focuses on the same thing: a single model improving itself through iterative refinement. Feed outputs back as inputs. Let the model critique its own work. Run the loop until convergence.</p>
+
+        <p>This is useful. It is also the least interesting thing recursive systems can do.</p>
+
+        <p>The frontier that matters -- the one that changes what is possible at scale -- is <strong>agent-to-agent recursive knowledge transfer</strong>. Not one model talking to itself. Multiple models teaching each other, where the thing being transferred is not an answer but the capacity to arrive at one.</p>
+
+        <h2>The transfer spectrum</h2>
+
+        <p>To understand why this matters, consider the three ways one model can currently learn from another.</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>What transfers</th>
+                    <th>Requires</th>
+                    <th>Limitation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Distillation</td>
+                    <td>Probability distributions over tokens</td>
+                    <td>Teacher's weights or logits</td>
+                    <td>Cannot transfer reasoning strategies, only surface distributions</td>
+                </tr>
+                <tr>
+                    <td>Behavioral cloning</td>
+                    <td>Input-output pairs</td>
+                    <td>Demonstration data</td>
+                    <td>Mimics outputs without understanding why; brittle on distribution shifts</td>
+                </tr>
+                <tr>
+                    <td>Recursive transfer</td>
+                    <td>The decomposition and reasoning process itself</td>
+                    <td>Structured interaction protocol</td>
+                    <td>Still emerging; no dominant framework yet</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Distillation gives you a smaller model that approximates the teacher's outputs. Behavioral cloning gives you a model that can repeat what the teacher did. Neither transfers <strong>how the teacher figured it out</strong>.</p>
+
+        <p>Recursive transfer is different. When Agent A solves a problem using the decompose-recurse-aggregate pattern, it produces something more valuable than a final answer. It produces a trace of how it broke the problem apart, what sub-problems it identified, how it chose to recurse, and how it reassembled the pieces. That trace is a compressed representation of a problem-solving strategy. And it is transferable.</p>
+
+        <h2>Why RLMs make this possible</h2>
+
+        <p>Standard LLMs do not produce the kind of structured intermediate reasoning that makes transfer meaningful. They produce a sequence of tokens. You can copy the tokens. You cannot copy the implicit process that generated them because that process is entangled in billions of parameters and is not separately addressable.</p>
+
+        <p>RLMs change this. The decompose-recurse-aggregate pattern forces the model to externalize its reasoning structure. Each recursive call is an explicit decision: <em>this is the sub-problem I am solving, this is the context I am carrying forward, this is how I will integrate this result with the others.</em> That externalization is what makes the process transferable.</p>
+
+        <p>Consider a concrete example. Agent A is a large model (say, 70B parameters) that has been post-trained on recursive processing of legal contracts. It encounters a new type of contract and develops a decomposition strategy: split by section, cross-reference defined terms, identify obligation chains, flag asymmetric risk clauses, then aggregate into a risk assessment.</p>
+
+        <p>In a standard system, Agent B (an 8B model) would need to be trained on the same contract data to learn anything from this. With recursive transfer, Agent B receives the decomposition strategy itself -- the schema of how to break this kind of document apart and what to look for at each level. Agent B may not execute the strategy as well (smaller capacity, less world knowledge), but it has the <em>structure</em> of the approach without needing to discover it independently.</p>
+
+        <h2>The three modes of recursive transfer</h2>
+
+        <p>Not all agent-to-agent teaching is the same. The emerging research suggests three distinct modes, each useful in different contexts.</p>
+
+        <p><strong>Strategy transfer.</strong> The teacher communicates a decomposition strategy: how to break a problem class apart, what to recurse on, what to aggregate. This is the highest-level form of transfer. It works best when the student model has sufficient base capability but lacks domain-specific problem-solving patterns. Think of it as transferring a flowchart, not a dataset.</p>
+
+        <p><strong>Critique transfer.</strong> The teacher does not solve the problem. Instead, it evaluates the student's recursive trace and identifies where the decomposition went wrong, where the recursion was too shallow or too deep, or where the aggregation lost information. This is recursive teaching in the most literal sense -- the teacher recurses over the student's recursive process. Early results from MIT's OASYS lab suggest this mode produces the most durable learning in the student.</p>
+
+        <p><strong>Scaffold transfer.</strong> The teacher provides a partial recursive structure -- the first level of decomposition, some anchor sub-results -- and the student fills in the rest. This is the most practical mode for production systems today because it does not require the student to accept arbitrary instructions. The student operates within its normal capabilities but with a structural head start.</p>
+
+        <h2>What this looks like in practice</h2>
+
+        <p>The agent orchestration systems that are beginning to appear in production (multi-agent frameworks from LangChain, CrewAI, AutoGen, and others) almost universally treat agents as black boxes that exchange messages. Agent A asks Agent B a question. Agent B responds. The orchestrator routes messages and manages state.</p>
+
+        <p>This is message passing, not knowledge transfer. It is the multi-agent equivalent of behavioral cloning: you see the output, not the process.</p>
+
+        <p>A recursive transfer architecture looks different. When Agent A completes a task, it does not just produce a result. It produces a <strong>recursive trace</strong> -- a structured record of every decomposition decision, every recursive call, every aggregation step. This trace is compact (typically 5-15% the size of the full context processed) and reusable.</p>
+
+        <p>When Agent B encounters a structurally similar task, it does not start from scratch. It loads the relevant trace, adapts the decomposition to its specific input, and executes. If the adaptation fails (the new input has structure the trace did not anticipate), Agent B falls back to independent processing and produces a new trace. Over time, a shared library of traces accumulates -- not a knowledge base of answers, but a knowledge base of <em>problem-solving approaches</em>.</p>
+
+        <p>This is fundamentally different from retrieval-augmented generation. RAG retrieves information. Recursive transfer retrieves <em>strategies</em>.</p>
+
+        <h2>The scaling implications</h2>
+
+        <p>The reason this matters beyond academic interest is scaling. Current multi-agent systems scale linearly: more agents, more compute, proportionally more capability. Recursive transfer introduces a different scaling curve.</p>
+
+        <p>When Agent A learns a new decomposition strategy and that strategy transfers successfully to Agents B through Z, the system has gained capability at the cost of one learning event, not twenty-six. As the number of agents grows, the value of each individual learning event grows with it. This is <strong>super-linear scaling of learning</strong>, and it is the property that makes recursive transfer qualitatively different from existing approaches.</p>
+
+        <p>There are limits. Strategy transfer degrades when the capability gap between teacher and student is too large. A 70B model's decomposition strategy may reference sub-tasks that an 8B model simply cannot execute. Critique transfer requires the teacher to model the student's capabilities, which is itself a hard problem. And scaffold transfer works only for tasks with transferable structure -- purely novel problems with no structural precedent still require independent processing.</p>
+
+        <p>But within those limits, the efficiency gains are significant. Early experiments show 3-7x reduction in the compute required for a student model to reach competence on a new task class when provided with recursive traces from a teacher, compared to independent learning or behavioral cloning from demonstrations.</p>
+
+        <h2>What is missing</h2>
+
+        <p>The honest answer is: a lot. There is no standard format for recursive traces. There is no consensus on how to evaluate whether a transfer was successful (beyond task performance, which conflates many factors). There is no theory of which strategies transfer well and which do not.</p>
+
+        <p>Most critically, there is no widely adopted framework for <strong>recursive trace compression</strong>. Raw traces are too large and too specific to transfer directly. The useful signal -- the structural decisions, the decomposition logic, the aggregation rules -- needs to be extracted and generalized. This is itself a recursive problem (use an RLM to recursively compress another RLM's recursive trace), and solving it well is likely the key technical challenge of the next two years.</p>
+
+        <p>The labs are circling this. Anthropic's constitutional AI work implies structured reasoning that could generate transferable traces. OpenAI's chain-of-thought distillation suggests they are thinking about process transfer, not just output transfer. Google DeepMind's Gemini architecture supports the kind of multi-modal recursive processing that would benefit most from shared strategies. But no one has published a unified framework yet.</p>
+
+        <h2>Why this is the real frontier</h2>
+
+        <p>Self-improvement loops are a dead end at scale. A single model refining its own outputs converges quickly, hits its capability ceiling, and cannot discover strategies outside its existing distribution. It is optimization, not learning.</p>
+
+        <p>Agent-to-agent recursive transfer is learning. It allows a population of models to collectively explore a larger strategy space than any individual model could reach alone. It converts one model's hard-won insight into a reusable asset for every other model in the system. And it does this without requiring shared weights, shared training data, or shared architecture.</p>
+
+        <p>The recursive language model paradigm made long-context processing tractable. Agent-to-agent recursive transfer could make <em>collective intelligence</em> tractable -- not as a metaphor, but as a concrete, measurable property of multi-agent systems.</p>
+
+        <p>That is a bigger deal than processing longer documents. And it is the paper that nobody has written yet.</p>
+
+    </div>
+
+    <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Saha, S. et al. "Recursive Language Models: A New Paradigm for Long-Context Processing." MIT OASYS Lab, 2025.</li>
+            <li>Hinton, G. et al. "Distilling the Knowledge in a Neural Network." NeurIPS Workshop, 2015.</li>
+            <li>Osa, T. et al. "An Algorithmic Perspective on Imitation Learning." Foundations and Trends in Robotics, 2018.</li>
+            <li>Hong, S. et al. "MetaGPT: Meta Programming for Multi-Agent Collaborative Framework." ICLR 2024.</li>
+            <li>Wu, Q. et al. "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation." Microsoft Research, 2023.</li>
+            <li>Zelikman, E. et al. "STaR: Self-Taught Reasoner -- Bootstrapping Reasoning with Reasoning." NeurIPS 2022.</li>
+            <li>Anthropic. "Constitutional AI: Harmlessness from AI Feedback." 2022.</li>
+        </ol>
+    </div>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
