@@ -476,6 +476,11 @@ tr:hover td { color: var(--text); }
 
 /* --- Responsive --- */
 @media (max-width: 768px) {
+  .fade-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
   .split {
     grid-template-columns: 1fr;
     gap: 2rem;
