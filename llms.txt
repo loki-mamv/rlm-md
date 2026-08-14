@@ -1,0 +1,17 @@
+# rlm.md — Recursive Language Models
+
+> rlm.md explains Recursive Language Models (RLMs): an inference technique that lets LLMs process arbitrarily long inputs by treating the prompt as an external environment and recursively calling themselves over snippets. Covers the original research, benchmarks, implementations, and practical applications.
+
+## Pages
+
+- [Applications -- Where Recursive Language Models Change Things | rlm.md](https://rlm.md/applications.html)
+- [Fundamentals -- How Recursive Language Models Work | rlm.md](https://rlm.md/fundamentals.html)
+- [rlm.md -- Recursive Language Models](https://rlm.md/)
+- [Research -- Paper Deep Dive and Benchmark Results | rlm.md](https://rlm.md/research.html)
+- [Resources -- Papers, Code, and Tools | rlm.md](https://rlm.md/resources.html)
+- [RLM vs LLM — How Recursive Language Models Differ | rlm.md](https://rlm.md/rlm-vs-llm.html)
+- [Techniques -- RLM Implementation Details | rlm.md](https://rlm.md/techniques.html)
+
+## Network
+
+Part of the thrive.md network. Contact via https://thrive.md/contact.html
