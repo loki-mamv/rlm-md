@@ -12,6 +12,3 @@
 - [RLM vs LLM — How Recursive Language Models Differ | rlm.md](https://rlm.md/rlm-vs-llm.html)
 - [Techniques -- RLM Implementation Details | rlm.md](https://rlm.md/techniques.html)
 
-## Network
-
-Part of the thrive.md network. Contact via https://thrive.md/contact.html
