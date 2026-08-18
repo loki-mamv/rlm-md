@@ -85,7 +85,7 @@
         <p class="lead">Retrieval-Augmented Generation dominated the long-context conversation for three years. RLMs take a fundamentally different path. Here is where each one wins.</p>
     </div>
 
-    <div class="blog-meta">February 2026</div>
+    <div class="blog-meta">February 2026 &middot; Updated August 2026</div>
 
     <div class="blog-body fade-in">
 
@@ -137,6 +137,8 @@
 
         <p>For latency-sensitive applications, RAG remains superior when the task is genuinely a retrieval task. A well-tuned RAG pipeline can return results in under a second. An RLM processing the same corpus will take longer, because it involves multiple sequential LLM calls. Parallel sub-calls help, but the recursive structure imposes some inherent serialization.</p>
 
+        <p><strong>Update, March 2026:</strong> an independent reproduction of the MIT work sharpens this trade-off. Wang (<a href="https://arxiv.org/abs/2603.02615">arXiv:2603.02615</a>) rebuilt the RLM framework on DeepSeek v3.2 and Kimi K2 and measured performance by recursion depth on the S-NIAH and OOLONG benchmarks. Depth-1 recursion improved results on complex reasoning tasks, but depth-2 recursion made results worse, especially on simple retrieval tasks. Cost and latency grew sharply with depth: one measured task went from 3.6 seconds at shallow depth to 344.5 seconds at depth 2. The practical guidance is to keep recursion shallow. Deeper recursion is not a free accuracy dial, and on retrieval-shaped work it moves you further from where RAG already performs well.</p>
+
         <h2>When to use which</h2>
 
         <p><strong>Use RAG when:</strong> The task is primarily retrieval (finding specific facts in a large corpus). The query maps cleanly to a specific document or passage. Latency is critical. The corpus changes frequently and needs to stay current without model changes. The questions are diverse and unpredictable, making pre-processing impractical.</p>
@@ -155,6 +157,7 @@
             <h3>References</h3>
             <ol>
                 <li>Zhang, A., Kraska, T., & Khattab, O. (2025). Recursive Language Models. arXiv:2512.24601. MIT OASYS Lab.</li>
+                <li>Wang, D. (2026). Think, But Don't Overthink: Reproducing Recursive Language Models. <a href="https://arxiv.org/abs/2603.02615">arXiv:2603.02615</a>.</li>
                 <li>Lewis, P., et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. NeurIPS 2020.</li>
                 <li>Gao, Y., et al. (2024). Retrieval-Augmented Generation for Large Language Models: A Survey. arXiv:2312.10997.</li>
                 <li>Barnett, S., et al. (2024). Seven Failure Points When Engineering a Retrieval Augmented Generation System. arXiv:2401.05856.</li>
@@ -169,7 +172,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
 </footer>
 
 <script>

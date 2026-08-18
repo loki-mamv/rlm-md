@@ -281,6 +281,8 @@
                     <li style="margin-bottom: 0.5rem;">Processing codebases, legal documents, research corpora, or book-length content</li>
                 </ul>
 
+                <p><strong>Keep the recursion shallow.</strong> An independent reproduction published in March 2026 rebuilt the RLM framework on DeepSeek v3.2 and Kimi K2 and measured results by recursion depth. Depth-1 recursion improved complex reasoning tasks, but depth-2 recursion made results worse — clearly so on simple retrieval tasks — while runtime and token use climbed steeply, from 3.6 seconds to 344.5 seconds on one measured task. The author's summary: deeper recursion causes models to overthink (<a href="https://arxiv.org/abs/2603.02615">Wang, arXiv:2603.02615, 2026</a>). Treat depth as a cost you justify per task, not a dial you turn up.</p>
+
                 <div class="callout">
                     <p>The two approaches aren't mutually exclusive. An RLM uses standard LLM calls internally — it just orchestrates them recursively. You can think of it as a meta-layer on top of any LLM.</p>
                 </div>
@@ -314,7 +316,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md — Built to explain, not to impress. Content updated February 2026.</p>
+    <p>rlm.md — Built to explain, not to impress. Content updated August 2026.</p>
 </footer>
 
 <script>
