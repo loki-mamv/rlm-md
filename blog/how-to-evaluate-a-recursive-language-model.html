@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Do You Evaluate a Recursive Language Model? | rlm.md</title>
+    <meta name="description" content="Accuracy alone tells you almost nothing about an RLM. Evaluation has to separate retrieval from aggregation, hold cost constant, report the latency tail rather than the mean, and treat recursion depth as a variable. Here is the harness that actually answers the question.">
+    <meta name="keywords" content="evaluate recursive language model, RLM benchmarks, OOLONG, BrowseComp-Plus, S-NIAH, CodeQA, RLM evaluation methodology, recursion depth ablation, cost per query LLM, long-context benchmark design">
+    <link rel="canonical" href="https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html">
+    <meta property="og:title" content="How Do You Evaluate a Recursive Language Model?">
+    <meta property="og:description" content="Why single-number accuracy misleads on RLMs, which benchmarks separate retrieval from aggregation, and the ablations an honest evaluation has to run.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Do You Evaluate a Recursive Language Model?">
+    <meta name="twitter:description" content="Evaluating an RLM: task complexity class, cost-matched accuracy, the latency tail, depth as a variable, and the ablations most write-ups skip.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="evaluate recursive language model, RLM benchmarks, OOLONG, BrowseComp-Plus, S-NIAH, CodeQA, RLM evaluation methodology, recursion depth ablation, cost per query LLM, long-context benchmark design">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html#article",
+      "headline": "How Do You Evaluate a Recursive Language Model?",
+      "description": "Accuracy alone tells you almost nothing about an RLM. Evaluation has to separate retrieval from aggregation, hold cost constant, report the latency tail rather than the mean, and treat recursion depth as a variable. Here is the harness that actually answers the question.",
+      "url": "https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html",
+      "datePublished": "2026-08-23",
+      "dateModified": "2026-08-23",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html#article"
+      },
+      "wordCount": "1690"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why is accuracy alone a bad way to evaluate an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Because the result depends almost entirely on the task's complexity class. On single-needle retrieval, where a long-context model already does well, an RLM adds orchestration and latency for no gain. On quadratic aggregation tasks, the gap is enormous: on OOLONG-Pairs at 32K tokens the base long-context model scored 0.1% F1 while an RLM at depth 1 scored 58%. Report the benchmark's complexity class alongside the number or the number is uninterpretable."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which benchmarks are used to evaluate recursive language models?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The original evaluation used four with deliberately different shapes. S-NIAH is single needle-in-a-haystack retrieval, used as a constant-complexity control. OOLONG and OOLONG-Pairs test semantic labeling and pairwise aggregation. CodeQA covers repository-scale code understanding from 23K to 4.2M tokens. BrowseComp-Plus is multi-hop question answering over roughly 1,000 documents totaling 6 to 11 million tokens against a fixed corpus."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should you report mean or median cost for an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Both, and the tail. On BrowseComp-Plus, an RLM over GPT-5 at depth 1 averaged $0.99 per query against an extrapolated $1.50 to $2.75 for the base model, and median RLM runs were cheaper than median base model runs. Outlier trajectories that recursed more than the task needed pulled the mean up. A workload priced on the mean is priced on its outliers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How should recursion depth be handled in an evaluation?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "As a swept variable, not a fixed setting. Depth is capability-dependent. With GPT-5, OOLONG-Pairs went from 58% F1 at depth 1 to 76% at depth 3. A reproduction study using DeepSeek v3.2 and Kimi K2 found that depth 2 degraded performance on simple retrieval and inflated execution time from 3.6 seconds to 344.5 seconds. Report results at each depth you tested."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What ablations does an honest RLM evaluation need?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "At minimum four. A depth-0 run with the same harness but no recursion, to show the gain comes from recursion rather than from the scaffolding. A context-length sweep, because the advantage grows with input size. A base-model swap, because a harness tuned for one model does not transfer. And a cost-matched baseline, because otherwise you are comparing a method against a budget."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Do You Evaluate a Recursive Language Model?</h1>
+        <p class="lead">A single accuracy number can make an RLM look revolutionary or pointless depending only on which benchmark you picked. This is how to build an evaluation that survives that objection.</p>
+    </div>
+
+    <div class="blog-meta">August 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> a single accuracy number is close to meaningless for an RLM. What determines the result is the task's complexity class, the budget you gave the baseline, the recursion depth you happened to pick, and whether your grader can tell a final answer from a passing thought. An honest evaluation reports four things: accuracy broken out by complexity class, cost per query as a distribution rather than a mean, wall-clock latency, and a depth sweep. Everything below is the argument for why each of those is load-bearing.</p>
+
+        <p>This matters more for RLMs than for ordinary models, because an RLM is a harness plus a model plus a policy. Three things can move the number, and only one of them is the thing you meant to test.</p>
+
+        <h2>Why does the benchmark choice decide the answer?</h2>
+
+        <p>Because long-context benchmarks are not one category. They differ in how much of the input a correct answer has to touch, and RLMs are sensitive to exactly that.</p>
+
+        <p>Consider two extremes from the original evaluation. S-NIAH is single needle-in-a-haystack retrieval: one fact, buried in filler, and the task is to find it. The work is constant-complexity regardless of input length. A long-context model handles it, and an RLM adds a code-writing loop, sub-calls, and latency to buy nothing.</p>
+
+        <p>OOLONG-Pairs is the opposite. It requires pairwise aggregation across the input, so the work grows quadratically with length. At 32K tokens, the base long-context model scored <strong>0.1% F1</strong>. An RLM at depth 1 scored <strong>58%</strong>, and at depth 3, <strong>76%</strong>.</p>
+
+        <p>Those two results are from the same method. The 0.1% figure is the important one: on aggregation, the long-context baseline was not slightly worse, it was non-functional. If your evaluation suite is retrieval-heavy, you will conclude RLMs are an expensive wash. If it is aggregation-heavy, you will conclude they are transformative. Both conclusions are artifacts of the suite.</p>
+
+        <p>So the first requirement is a suite that spans the range on purpose, with the complexity class stated per benchmark. The original work used four: S-NIAH as the constant-complexity control, OOLONG and OOLONG-Pairs for semantic labeling and pairwise aggregation, CodeQA for repository-scale code understanding from 23K to 4.2M tokens, and BrowseComp-Plus for multi-hop question answering over roughly a thousand documents totaling 6 to 11 million tokens.</p>
+
+        <p>BrowseComp-Plus is worth singling out because of a design choice: it runs against a fixed, curated corpus rather than a live web search API. That separates retrieval failures from reasoning failures, which is precisely the confound that makes agentic benchmarks hard to reproduce. Our post on <a href="rlm-vs-rag-retrieval-augmented-generation.html">RLMs versus RAG</a> covers why that separation is the interesting axis.</p>
+
+        <h2>What should you actually measure?</h2>
+
+        <p>Four things, and three of them get skipped in most write-ups.</p>
+
+        <h3>1. Accuracy, broken out by complexity class</h3>
+
+        <p>Not a suite average. An average over one retrieval benchmark and one aggregation benchmark describes no task that exists. Report per-benchmark, and label each with what the task requires: retrieval, filtering, aggregation, or multi-hop synthesis.</p>
+
+        <h3>2. Cost per query, as a distribution</h3>
+
+        <p>On BrowseComp-Plus, the RLM over GPT-5 at depth 1 averaged <strong>$0.99 per query</strong> against an extrapolated <strong>$1.50 to $2.75</strong> for the base model. The headline is that the RLM was cheaper. The more useful detail is that median RLM runs were cheaper than median base model runs, and the mean was dragged upward by outlier trajectories that recursed further than the task required.</p>
+
+        <p>That distribution shape is the operational fact. A p50 and a p99 tell you whether you can run this at volume; a mean does not. Our piece on <a href="inference-time-compute-scaling.html">inference-time compute scaling</a> covers the economics of paying for thinking rather than parameters.</p>
+
+        <h3>3. Wall-clock latency, also as a distribution</h3>
+
+        <p>Token counts are a poor proxy here, because the dominant latency factor in a naive RLM is whether sub-calls are dispatched concurrently. A root model that fans out twelve independent sub-questions and awaits them one at a time pays twelve round trips for work that is structurally parallel. Two implementations with identical token consumption can differ by an order of magnitude in wall-clock time.</p>
+
+        <p>Measure the thing users experience. If you report tokens instead of seconds, you are hiding your own implementation quality.</p>
+
+        <h3>4. Recursion depth, swept rather than fixed</h3>
+
+        <p>Depth is not a constant of the method. It is a tuned parameter whose optimum depends on the base model and the task, which makes reporting a single depth an incomplete result.</p>
+
+        <p>The original work used depth 1 for its main experiments, with the authors noting that the root model could call LMs but not other RLMs, and that depth 1 was sufficient for most modern long-context benchmarks. Where they pushed further it paid off on hard aggregation: 58% F1 at depth 1 rising to 76% at depth 3 on OOLONG-Pairs, and 66% at depth 2 on CodeQA against 58% for a compaction agent.</p>
+
+        <p>A subsequent reproduction study using open-source agentic models, DeepSeek v3.2 and Kimi K2, found the opposite direction on easier tasks. Deeper recursion caused the models to overthink: depth 2 degraded accuracy on simple retrieval and inflated execution time from <strong>3.6 seconds to 344.5 seconds</strong>. That is not a rounding error, and it is invisible in any evaluation that reports accuracy at a single depth.</p>
+
+        <h2>Which ablations are mandatory?</h2>
+
+        <p>Four, because without them you cannot attribute the result to recursion at all.</p>
+
+        <ul>
+            <li><strong>Depth 0, same harness.</strong> Run the identical REPL environment, the identical prompt, and the identical answer-extraction logic, with recursion disabled. On BrowseComp-Plus this ablation reached 90% where the full RLM reached 100%, which tells you how much of the gain came from the scaffolding versus from the recursive call itself. Skipping this ablation is the single most common way an RLM result gets over-credited.</li>
+            <li><strong>Context-length sweep.</strong> The advantage is a function of input size. A result at 32K tokens does not predict a result at 1M. Report a curve, not a point.</li>
+            <li><strong>Base-model swap.</strong> An RLM harness is a program-writing loop, so the base model's coding competence is load-bearing. The original evaluation found that Qwen3-Coder trajectories contained significantly more syntax errors than GPT-5 trajectories. A harness tuned for one model is a harness for that model, and the paper flags that using the same system prompt across all models is itself problematic.</li>
+            <li><strong>Cost-matched baseline.</strong> If the RLM gets to spend more, you have measured a budget, not a method. Give the single-pass baseline comparable spend, whether through a larger model, more sampling, or a longer reasoning budget.</li>
+        </ul>
+
+        <h2>Why is grading an RLM harder than grading an LLM?</h2>
+
+        <p>Because the output is not a single object. A single-pass model emits an answer by construction. An RLM emits a stream of code, observations, intermediate notes, and sub-call results, and something has to decide which of those is the deliverable. The original paper names this directly: distinguishing between a final answer and a thought is brittle.</p>
+
+        <p>That is an evaluation problem before it is a product problem. If your grader takes the last emitted string, you will score a hypothesis as a final answer some fraction of the time, and that fraction differs by model. If your grader looks for a structured answer block, you will penalize models that failed to format rather than models that failed to reason.</p>
+
+        <p>The practical mitigations are unexciting and effective. Require a structured final-answer channel and count formatting failures separately from reasoning failures. Log the full trajectory so a disagreement can be adjudicated. And report the rate at which extraction failed at all, because a method that answers correctly but cannot say so is a different engineering problem from one that answers wrongly.</p>
+
+        <p>A related trap: thinking models without sufficient output token budget struggle as RLMs, because a model that spends its allowance deliberating has nothing left to emit the code that does the work. If you cap output tokens uniformly across models, you have introduced a confound.</p>
+
+        <h2>What does a minimal evaluation harness look like?</h2>
+
+        <p>A checklist that fits on one page:</p>
+
+        <ol>
+            <li><strong>Pick at least three benchmarks spanning complexity classes:</strong> one retrieval control, one aggregation task, one multi-hop or repository-scale task.</li>
+            <li><strong>Fix the corpus</strong> where retrieval is involved, so retrieval failures and reasoning failures stay separable.</li>
+            <li><strong>Sweep depth</strong> across at least 0, 1, and 2, and report every level you ran.</li>
+            <li><strong>Sweep context length</strong> across at least an order of magnitude.</li>
+            <li><strong>Run two base models</strong> of different coding competence, with a prompt tuned per model rather than shared.</li>
+            <li><strong>Record per-query cost, wall-clock latency, turn count, and sub-call count,</strong> and report p50 and p99 for each.</li>
+            <li><strong>Log every trajectory</strong> and report the answer-extraction failure rate as its own number.</li>
+            <li><strong>Cap turns and recursion,</strong> and report how many runs hit the cap. A silent cap is a silent truncation of your own results.</li>
+        </ol>
+
+        <p>Steps 6 through 8 are the ones that separate an evaluation you can operate against from a benchmark table. Our post on the <a href="decompose-recurse-aggregate-pattern.html">decompose-recurse-aggregate pattern</a> covers the structure those metrics are describing.</p>
+
+        <h2>What is still missing?</h2>
+
+        <p>The authors are direct about this: evaluation for harder, more natural long-context processing tasks remains highly under-explored, and guardrail mechanisms still need development.</p>
+
+        <p>Both gaps are real. The existing suite is built from tasks that are easy to grade automatically, which selects for tasks with unambiguous answers. Much production long-context work, summarizing a case file, reconciling contradictory sources, drafting from a corpus, does not have one. Nobody has a good automatic grader for those, which means the benchmark numbers describe the easier half of the problem space.</p>
+
+        <p>The honest position is that current RLM evaluation demonstrates a large, replicated advantage on aggregation-heavy tasks with checkable answers, at competitive median cost, with a long tail. That is a strong claim. It is not the same claim as "RLMs are better at long context," and an evaluation that conflates the two is doing the reader a disservice. Our post on <a href="rlm-limitations-failure-modes.html">RLM limitations and failure modes</a> covers the rest of that list.</p>
+
+        <h2>The short checklist</h2>
+
+        <p>If you read one thing from this: report the complexity class of every benchmark, run the depth-0 ablation, sweep depth, publish p99 cost and latency alongside the mean, and state the answer-extraction failure rate separately.</p>
+
+        <p>Five items. Most published RLM comparisons include one or two of them, which is why the numbers move so much between write-ups.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (revised May 2026). <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>"Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615. Depth ablations with DeepSeek v3.2 and Kimi K2 on S-NIAH and OOLONG. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>BrowseComp-Plus: a fixed-corpus evaluation benchmark for deep-research agents. <a href="https://arxiv.org/abs/2508.06600">arxiv.org/abs/2508.06600</a></li>
+            <li>OOLONG and OOLONG-Pairs: semantic labeling and pairwise aggregation benchmarks used in the RLM evaluation.</li>
+            <li>S-NIAH: single needle-in-a-haystack retrieval, used as the constant-complexity control task.</li>
+            <li>CodeQA: repository-scale code understanding, 23K to 4.2M tokens.</li>
+        </ol>
+    </div>
+
+</div>
+</div>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
