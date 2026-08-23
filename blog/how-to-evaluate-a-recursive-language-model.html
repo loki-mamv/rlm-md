@@ -286,6 +286,32 @@
 
 </div>
 </div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why is accuracy alone a bad way to evaluate an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Because the result depends almost entirely on the task&#x27;s complexity class. On single-needle retrieval, where a long-context model already does well, an RLM adds orchestration and latency for no gain. On quadratic aggregation tasks, the gap is enormous: on OOLONG-Pairs at 32K tokens the base long-context model scored 0.1% F1 while an RLM at depth 1 scored 58%. Report the benchmark&#x27;s complexity class alongside the number or the number is uninterpretable.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Which benchmarks are used to evaluate recursive language models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The original evaluation used four with deliberately different shapes. S-NIAH is single needle-in-a-haystack retrieval, used as a constant-complexity control. OOLONG and OOLONG-Pairs test semantic labeling and pairwise aggregation. CodeQA covers repository-scale code understanding from 23K to 4.2M tokens. BrowseComp-Plus is multi-hop question answering over roughly 1,000 documents totaling 6 to 11 million tokens against a fixed corpus.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should you report mean or median cost for an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Both, and the tail. On BrowseComp-Plus, an RLM over GPT-5 at depth 1 averaged $0.99 per query against an extrapolated $1.50 to $2.75 for the base model, and median RLM runs were cheaper than median base model runs. Outlier trajectories that recursed more than the task needed pulled the mean up. A workload priced on the mean is priced on its outliers.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How should recursion depth be handled in an evaluation?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">As a swept variable, not a fixed setting. Depth is capability-dependent. With GPT-5, OOLONG-Pairs went from 58% F1 at depth 1 to 76% at depth 3. A reproduction study using DeepSeek v3.2 and Kimi K2 found that depth 2 degraded performance on simple retrieval and inflated execution time from 3.6 seconds to 344.5 seconds. Report results at each depth you tested.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What ablations does an honest RLM evaluation need?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">At minimum four. A depth-0 run with the same harness but no recursion, to show the gain comes from recursion rather than from the scaffolding. A context-length sweep, because the advantage grows with input size. A base-model swap, because a harness tuned for one model does not transfer. And a cost-matched baseline, because otherwise you are comparing a method against a budget.</p>
+                </div>
+            </div>
+        </section>
 
 <footer class="site-footer">
     <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>

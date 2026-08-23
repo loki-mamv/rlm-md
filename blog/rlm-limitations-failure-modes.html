@@ -281,6 +281,32 @@
 
 </div>
 </div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is the biggest limitation of recursive language models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The base model must be a competent coder. An RLM drives a REPL, so the root model writes code to slice, search, and dispatch over the context. Models without sufficient coding ability produce syntax errors, and when those models also make sub-calls, the errors propagate. In the original evaluation, Qwen3-Coder trajectories contained significantly more syntax errors than GPT-5 trajectories, and deeper recursion made that worse rather than better.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does deeper recursion always improve results?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. It depends on the base model. With GPT-5, higher recursive depth helped substantially on the hardest aggregation task, reaching 76% at depth 3 versus 58% at depth 1 on OOLONG-Pairs. With weaker models, depth showed diminishing or negative returns because failed sub-calls compound. Depth is a capability-dependent knob, not a free improvement.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Are RLMs more expensive than a single long-context call?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Usually not on the median, but the tail is worse. On BrowseComp-Plus, an RLM over GPT-5 at depth 1 averaged $0.99 per query against an extrapolated $1.50 to $2.75 for the base model. Median RLM runs were cheaper than base model runs; outlier trajectories that recursed more than necessary pulled the average up. Budget for variance, not just for the mean.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Are RLMs slow?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">They are if the sub-calls run sequentially. The paper names this directly: RLMs without asynchronous language model calls are slow. A root model that dispatches ten sub-queries one after another pays ten round trips. Concurrent dispatch is an implementation requirement, not an optimization.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do RLMs solve context rot?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">They sidestep it rather than solve it. Each individual call still operates inside a normal context window and still degrades if you overfill it. What changes is that no single call has to hold the entire input. The degradation curve of the underlying model is unchanged; the RLM just stops driving up it.</p>
+                </div>
+            </div>
+        </section>
 
 <footer class="site-footer">
     <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
