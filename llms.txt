@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [How Deep Should a Recursive Language Model Recurse? | rlm.md](https://rlm.md/blog/how-deep-should-an-rlm-recurse.html)
 - [How Do You Evaluate a Recursive Language Model? | rlm.md](https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html)
 - [What Are the Limitations of Recursive Language Models? | rlm.md](https://rlm.md/blog/rlm-limitations-failure-modes.html)
 - [RLM vs RAG: Retrieval-Augmented Generation Compared | rlm.md](https://rlm.md/blog/rlm-vs-rag-retrieval-augmented-generation.html)

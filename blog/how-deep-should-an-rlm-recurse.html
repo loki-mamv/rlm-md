@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Deep Should a Recursive Language Model Recurse? | rlm.md</title>
+    <meta name="description" content="Depth 1 is the default for a reason: it captured most of the gain on every aggregation task at flat or lower cost. Depth 2 and 3 paid off only on quadratic pairwise aggregation with a frontier base model, and hurt weaker coders and simple retrieval. Here is the evidence at each depth and a decision rule.">
+    <meta name="keywords" content="RLM recursion depth, recursive language model depth, max recursion depth, depth 1 vs depth 2, OOLONG-Pairs depth 3, RLM cost per query, RLM latency, sub-RLM calls, recursive decomposition, long-context inference scaling">
+    <link rel="canonical" href="https://rlm.md/blog/how-deep-should-an-rlm-recurse.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-deep-should-an-rlm-recurse.html">
+    <meta property="og:title" content="How Deep Should a Recursive Language Model Recurse?">
+    <meta property="og:description" content="Depth 0, 1, 2, or 3: what the RLM depth sweep and an open-model reproduction show about accuracy, cost, and latency at each level, and a rule for picking one.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Deep Should a Recursive Language Model Recurse?">
+    <meta name="twitter:description" content="Choosing RLM recursion depth: the depth 0-3 numbers, where depth 3 wins, where depth 2 loses, and a decision rule by task complexity class.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM recursion depth, recursive language model depth, max recursion depth, depth 1 vs depth 2, OOLONG-Pairs depth 3, RLM cost per query, RLM latency, sub-RLM calls, recursive decomposition, long-context inference scaling">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-deep-should-an-rlm-recurse.html#article",
+      "headline": "How Deep Should a Recursive Language Model Recurse?",
+      "description": "Depth 1 is the default for a reason: it captured most of the gain on every aggregation task at flat or lower cost. Depth 2 and 3 paid off only on quadratic pairwise aggregation with a frontier base model, and hurt weaker coders and simple retrieval. Here is the evidence at each depth and a decision rule.",
+      "url": "https://rlm.md/blog/how-deep-should-an-rlm-recurse.html",
+      "datePublished": "2026-08-25",
+      "dateModified": "2026-08-25",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-deep-should-an-rlm-recurse.html#article"
+      },
+      "wordCount": "1544"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the default recursion depth for a recursive language model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Depth 1. The root model runs in a REPL and can call plain language models on snippets of the prompt, but those sub-calls cannot recurse further. The authors used depth 1 for their main experiments and wrote that it was sufficient for most modern long-context benchmarks. In the depth sweep with GPT-5, depth 1 captured the largest single gain on every aggregation task at flat or lower cost than depth 0."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does depth 2 or depth 3 ever beat depth 1?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, on quadratic aggregation with a strong base model. On OOLONG-Pairs, which requires listing pairs of entries that satisfy a property, GPT-5 scored 58% F1 at depth 1, 65.5% at depth 2, and 76% at depth 3. On CodeQA the peak was depth 2 at 66%, and depth 3 fell back to 58%. On BrowseComp-Plus and OOLONG the gains past depth 1 were within a few points."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can deeper recursion make an RLM worse?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, in two documented cases. With Qwen3-Coder-480B-A35B as the base, CodeQA accuracy fell from 66% at depth 0 to 44% at depth 3 because syntax errors in sub-RLM calls propagate to the parent. In an open-model reproduction, DeepSeek v3.2 on single-needle retrieval fell from 100% with no recursion to 70% at depth 2, and execution time rose from 3.6 seconds to 344.5 seconds."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does recursion depth change cost and latency?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Mean cost was not monotonic in depth. With GPT-5, depth 1 was the cheapest setting on CodeQA ($0.11 per query) and OOLONG-Pairs ($0.33). What depth changes is the variance: OOLONG at depth 2 averaged $1.10 with a standard deviation of $3.25. Latency is where depth hurts most. The reproduction measured 3.6 seconds without recursion, 89.3 seconds at depth 1, and 344.5 seconds at depth 2 on the same task."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How should I choose recursion depth for a new task?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Classify the task first. Constant-complexity retrieval gets depth 0 or no RLM at all. Linear labeling and multi-hop question answering get depth 1. Quadratic pairwise aggregation gets depth 2, and depth 3 only if the base model writes correct code and a measured run shows a gain. Set the maximum depth as a hard cap per task class, and check p99 latency at each depth before committing."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Deep Should a Recursive Language Model Recurse?</h1>
+        <p class="lead">Depth 0, 1, 2, or 3. The original paper ran all four, a reproduction ran three of them on open models, and the numbers point to a decision rule shorter than most people expect.</p>
+    </div>
+
+    <div class="blog-meta">August 25, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> depth 1 is the default, and it is the default for a reason. In the original depth sweep, the step from depth 0 to depth 1 was the largest single gain on every aggregation task, and it came with flat or lower cost. Depth 2 and 3 paid off on one class of task, quadratic pairwise aggregation, and only with a frontier base model. On a weaker coder, every step past depth 0 lost accuracy. On simple retrieval, an open-model reproduction found that depth 2 cut accuracy by 30 points and multiplied latency by almost 100x. The rule that falls out: recurse to the depth your task's complexity class demands, and not one level further.</p>
+
+        <h2>What does recursion depth actually mean?</h2>
+
+        <p>The <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> defines it precisely: "Max recursion depth 0 is an RLM without sub-calling capabilities. Max recursion depth 1 allows sub-calling LLMs, while max depth &gt;1 allows sub-calling RLMs."</p>
+
+        <p>So depth 0 is the root model alone in a REPL with the prompt loaded as a variable. It can slice, grep, and loop over the input, but every piece of text it reads passes through its own context. Depth 1 lets the root dispatch plain language-model calls over snippets. Depth 2 lets those sub-calls be RLMs themselves, each with its own REPL and its own sub-calls. Each level multiplies the fan-out, because the paper notes that each root iteration "can launch arbitrarily many sub-calls."</p>
+
+        <p>The authors' <a href="https://alexzhang13.github.io/blog/2025/rlm/">October 2025 blog post</a> only ran depth 1: "the root LM can only call LMs, not other RLMs." Their reasoning was that "for most modern 'long context' benchmarks, a recursive depth of 1 was sufficient." The arXiv paper, revised in May 2026, then swept depth 0 through 3 on four benchmarks. That table is the best evidence anyone has on this question.</p>
+
+        <h2>What did the depth sweep show with GPT-5?</h2>
+
+        <p>Root model GPT-5, sub-calls to GPT-5-mini, accuracy with mean cost per query in parentheses:</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Depth</th>
+                    <th>CodeQA</th>
+                    <th>BrowseComp-Plus 1K</th>
+                    <th>OOLONG</th>
+                    <th>OOLONG-Pairs</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>0</td><td>58.0 ($0.18)</td><td>88.0 ($0.44)</td><td>36.0 ($0.37)</td><td>43.9 ($0.69)</td></tr>
+                <tr><td>1</td><td>62.0 ($0.11)</td><td>91.3 ($0.99)</td><td>56.0 ($0.43)</td><td>58.0 ($0.33)</td></tr>
+                <tr><td>2</td><td>66.0 ($0.15)</td><td>92.0 ($0.55)</td><td>56.5 ($1.10)</td><td>65.5 ($0.33)</td></tr>
+                <tr><td>3</td><td>58.0 ($0.15)</td><td>92.0 ($0.51)</td><td>58.0 ($0.51)</td><td>76.0 ($0.39)</td></tr>
+            </tbody>
+        </table>
+
+        <p>Read it by column and three patterns appear.</p>
+
+        <p><strong>Depth 0 to 1 is the big step.</strong> OOLONG gained 20 points, OOLONG-Pairs gained 14, CodeQA gained 4, BrowseComp-Plus gained 3. Cost fell on CodeQA and fell by more than half on OOLONG-Pairs. That is what you expect when the root model stops trying to read every chunk itself and starts delegating.</p>
+
+        <p><strong>Past depth 1, most tasks flatten.</strong> BrowseComp-Plus moved 0.7 points across two more levels. OOLONG moved 2 points. CodeQA peaked at depth 2 and then gave the whole gain back at depth 3, landing on the same 58% it had at depth 0.</p>
+
+        <p><strong>One task kept climbing.</strong> OOLONG-Pairs went 43.9, 58.0, 65.5, 76.0. It requires listing pairs of entries that satisfy a property, so the work grows quadratically with input length, and each level of recursion partitions that work again. The paper singles it out: "On OOLONG-Pairs in particular, the higher recursive depth variants of the RLM for GPT-5 outperform all other methods including Claude Code and OpenCode by a large margin."</p>
+
+        <p>That is the whole positive case for depth 3. It is a real case, and it is narrow.</p>
+
+        <h2>What happens when the base model is a weaker coder?</h2>
+
+        <p>The same sweep with Qwen3-Coder-480B-A35B inverts. CodeQA went 66.0, 56.0, 54.0, 44.0 from depth 0 to 3. OOLONG went 43.5, 48.0, 26.0, 32.0. OOLONG-Pairs went 17.3, 23.1, 19.0, 21.1. The only benchmark that improved with depth was BrowseComp-Plus, from 46.0 to 68.7.</p>
+
+        <p>The paper's explanation is mechanical: "Qwen3-Coder-480B-A35B often makes syntax errors that result in failed outputs, and having sub-RLM calls propagates this issue to sub-calls." Depth is an amplifier. If the base model writes correct code, depth amplifies decomposition. If it writes broken code, depth amplifies failure, and a failed sub-RLM returns nothing useful to a parent that then aggregates nothing. Our post on <a href="rlm-limitations-failure-modes.html">RLM limitations and failure modes</a> covers why coding competence is the gating filter for the whole approach.</p>
+
+        <h2>What did the open-model reproduction find?</h2>
+
+        <p>A March 2026 reproduction, <a href="https://arxiv.org/abs/2603.02615">"Think, But Don't Overthink"</a>, ran DeepSeek v3.2 and Kimi K2 at depth 0, 1, and 2 on S-NIAH and OOLONG, with 20 samples per benchmark and OOLONG contexts between 1,024 and 65,536 tokens.</p>
+
+        <p>On S-NIAH, single-needle retrieval, DeepSeek v3.2 scored 100% as a plain call, 85% at depth 1, and 70% at depth 2. Execution time went from <strong>3.6 seconds to 89.3 seconds to 344.5 seconds</strong>. Kimi K2 peaked at 545.5 seconds at depth 2. The author's diagnosis: "forcing the model into a programmatic REPL environment induces unnecessary cognitive load, causing the model to 'over-engineer' a solution for a simple string-matching problem."</p>
+
+        <p>On OOLONG, DeepSeek v3.2 went from 0% as a plain call to 42.1% at depth 1, then back to 33.7% at depth 2. Kimi K2, which already scored 86.6% as a plain call, fell to 60% at depth 1 and 55% at depth 2.</p>
+
+        <p>Two caveats. The sample is small, and the study did not tune prompts per model, which the original paper flags as a problem in its own setup. But the direction matches the Qwen3-Coder result above, and it adds a second lesson: if the plain model already handles the task, recursion at any depth is a tax.</p>
+
+        <h2>Why does cost not track depth the way you would expect?</h2>
+
+        <p>Look at the cost column again. With GPT-5, depth 1 was the cheapest setting on CodeQA and OOLONG-Pairs, and depth 3 was cheaper than depth 1 on BrowseComp-Plus. Mean cost is not monotonic in depth.</p>
+
+        <p>What depth changes is the spread. The paper reports standard deviations alongside the means, and OOLONG at depth 2 came in at $1.10 with a standard deviation of $3.25. Depth 1 on the same task was $0.43 with a standard deviation of $0.85. Deeper recursion does not make the typical query expensive. It makes the worst query much worse, and a workload priced on the mean is priced on those outliers.</p>
+
+        <p>Latency is where the tax is unambiguous. Every level of depth adds a round of sub-calls that must complete before the parent can proceed, and the reproduction's 3.6 to 344.5 second range is what that looks like without concurrent dispatch. Our guide to <a href="how-to-evaluate-a-recursive-language-model.html">evaluating an RLM</a> argues for reporting p50 and p99 at each depth for exactly this reason.</p>
+
+        <h2>Does theory say deeper is better?</h2>
+
+        <p>Theory says deeper is always possible, which is a different claim. <a href="https://arxiv.org/abs/2603.02112">Yang, Srebro, and Li</a> show that any computable problem admits a recursive decomposition in which each subtask needs exponentially smaller active context than a standard autoregressive model. The lineage runs back to <a href="https://arxiv.org/abs/2306.06891">Recursion of Thought</a> in 2023, which used special tokens to split problems across contexts, and forward to <a href="https://arxiv.org/abs/2510.11967">Context-Folding</a>, which branches into a sub-trajectory and folds it back into a summary to keep the active context about 10x smaller.</p>
+
+        <p>None of that tells you how deep a given task needs. The empirical tables do, and they say most benchmarks are exhausted at depth 1.</p>
+
+        <h2>What is the decision rule?</h2>
+
+        <ol>
+            <li><strong>Classify the task by how much of the input a correct answer must touch.</strong> Constant (find one fact), linear (label or count every chunk), quadratic (compare chunks to each other), or multi-hop (follow a chain across documents).</li>
+            <li><strong>Constant: depth 0, or no RLM at all.</strong> The plain model scored 100% on S-NIAH in the reproduction. Recursion only cost accuracy and time.</li>
+            <li><strong>Linear and multi-hop: depth 1.</strong> OOLONG gained 20 points from depth 0 to 1 and 2 points across the next two levels. BrowseComp-Plus gained 3.3 and then 0.7.</li>
+            <li><strong>Quadratic: depth 2, then test depth 3.</strong> OOLONG-Pairs is the only benchmark where each level paid, and only with GPT-5 at the root.</li>
+            <li><strong>Check the base model's syntax error rate at depth 0 before going deeper.</strong> If depth-0 trajectories already contain failed cells, depth will multiply them. Qwen3-Coder lost 22 points on CodeQA between depth 0 and 3.</li>
+            <li><strong>Set max depth as a hard cap per task class, never as a global default.</strong> Record p99 latency at each depth you allow. If your harness cannot dispatch sub-calls concurrently, treat depth 2 as a batch-only setting.</li>
+        </ol>
+
+        <p>The implementation notes on our <a href="../techniques.html">techniques page</a> cover where the depth cap lives in the harness and how sub-RLM calls are spawned.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>Depth 1 is the answer for most tasks, and the evidence for it is strong: the largest gains in the sweep, flat or lower mean cost, and the authors' own default. Depth 2 is justified on quadratic aggregation with a frontier coder and on CodeQA-style repository questions. Depth 3 has one documented win, OOLONG-Pairs at 76% F1, and one documented loss, CodeQA back to its depth-0 score.</p>
+
+        <p>Anything deeper than your task's complexity class is not more thinking. It is more fan-out, more latency, and a longer cost tail, paid for a result you already had.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3, May 2026). Table 1: depth 0 to 3 with GPT-5 and Qwen3-Coder-480B-A35B. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L. "Recursive Language Models." Blog post, October 2025. Original depth-1-only experiments. <a href="https://alexzhang13.github.io/blog/2025/rlm/">alexzhang13.github.io/blog/2025/rlm/</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. DeepSeek v3.2 and Kimi K2 at depth 0, 1, 2 on S-NIAH and OOLONG. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Yang, C., Srebro, N., Li, Z. "Recursive Models for Long-Horizon Reasoning." arXiv:2603.02112, March 2026. <a href="https://arxiv.org/abs/2603.02112">arxiv.org/abs/2603.02112</a></li>
+            <li>Lee, S., Kim, G. "Recursion of Thought: A Divide-and-Conquer Approach to Multi-Context Reasoning with Language Models." Findings of ACL 2023. arXiv:2306.06891. <a href="https://arxiv.org/abs/2306.06891">arxiv.org/abs/2306.06891</a></li>
+            <li>Sun, W., et al. "Scaling Long-Horizon LLM Agent via Context-Folding." arXiv:2510.11967, October 2025. <a href="https://arxiv.org/abs/2510.11967">arxiv.org/abs/2510.11967</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is the default recursion depth for a recursive language model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Depth 1. The root model runs in a REPL and can call plain language models on snippets of the prompt, but those sub-calls cannot recurse further. The authors used depth 1 for their main experiments and wrote that it was sufficient for most modern long-context benchmarks. In the depth sweep with GPT-5, depth 1 captured the largest single gain on every aggregation task at flat or lower cost than depth 0.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does depth 2 or depth 3 ever beat depth 1?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, on quadratic aggregation with a strong base model. On OOLONG-Pairs, which requires listing pairs of entries that satisfy a property, GPT-5 scored 58% F1 at depth 1, 65.5% at depth 2, and 76% at depth 3. On CodeQA the peak was depth 2 at 66%, and depth 3 fell back to 58%. On BrowseComp-Plus and OOLONG the gains past depth 1 were within a few points.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can deeper recursion make an RLM worse?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, in two documented cases. With Qwen3-Coder-480B-A35B as the base, CodeQA accuracy fell from 66% at depth 0 to 44% at depth 3 because syntax errors in sub-RLM calls propagate to the parent. In an open-model reproduction, DeepSeek v3.2 on single-needle retrieval fell from 100% with no recursion to 70% at depth 2, and execution time rose from 3.6 seconds to 344.5 seconds.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How much does recursion depth change cost and latency?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Mean cost was not monotonic in depth. With GPT-5, depth 1 was the cheapest setting on CodeQA ($0.11 per query) and OOLONG-Pairs ($0.33). What depth changes is the variance: OOLONG at depth 2 averaged $1.10 with a standard deviation of $3.25. Latency is where depth hurts most. The reproduction measured 3.6 seconds without recursion, 89.3 seconds at depth 1, and 344.5 seconds at depth 2 on the same task.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How should I choose recursion depth for a new task?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Classify the task first. Constant-complexity retrieval gets depth 0 or no RLM at all. Linear labeling and multi-hop question answering get depth 1. Quadratic pairwise aggregation gets depth 2, and depth 3 only if the base model writes correct code and a measured run shows a gain. Set the maximum depth as a hard cap per task class, and check p99 latency at each depth before committing.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
