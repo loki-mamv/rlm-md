@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Kind of Base Model Do You Need to Run an RLM? | rlm.md</title>
+    <meta name="description" content="An RLM root model needs three things: it writes correct Python in a REPL, it follows a long orchestration prompt, and it has output-token budget left after thinking. Coding ability matters more than context window size. The evidence, model by model.">
+    <meta name="keywords" content="RLM base model requirements, recursive language model root model, RLM coding ability, Qwen3-Coder RLM, RLM-Qwen3-8B, GPT-5 RLM, thinking models output tokens, RLM system prompt, open source RLM">
+    <link rel="canonical" href="https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html">
+    <meta property="og:title" content="What Kind of Base Model Do You Need to Run an RLM?">
+    <meta property="og:description" content="Coding ability, instruction following, and output-token budget decide whether a model works as an RLM root. Context window size barely matters. The evidence, model by model.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Kind of Base Model Do You Need to Run an RLM?">
+    <meta name="twitter:description" content="The three capabilities an RLM root model must have, which models pass the bar, and why context window size is the least important spec on the sheet.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM base model requirements, recursive language model root model, RLM coding ability, Qwen3-Coder RLM, RLM-Qwen3-8B, GPT-5 RLM, thinking models output tokens, RLM system prompt, open source RLM">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html#article",
+      "headline": "What Kind of Base Model Do You Need to Run an RLM?",
+      "description": "An RLM root model needs three things: it writes correct Python in a REPL, it follows a long orchestration prompt, and it has output-token budget left after thinking. Coding ability matters more than context window size. The evidence, model by model.",
+      "url": "https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html",
+      "datePublished": "2026-08-31",
+      "dateModified": "2026-08-31",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html#article"
+      },
+      "wordCount": "1380"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the most important capability for an RLM base model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Coding ability. The root model of an RLM operates a Python REPL where the long input is stored as a variable, so its output is a program, not prose. The original paper states plainly that models without sufficient coding capabilities struggle as RLMs. In its evaluation, Qwen3-Coder trajectories contained significantly more syntax errors than GPT-5 trajectories, even on trajectories that ultimately reached a correct answer, and that gap tracked the accuracy gap: 58.0% versus 23.1% F1 at depth 1 on OOLONG-Pairs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the RLM root model need a large context window?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The window only needs to hold the orchestration loop: the system prompt, the code the model writes, and REPL observations. The full input never enters the root context; it lives in the environment as a variable. That is how the method processes inputs two orders of magnitude beyond model context limits, at the 10M+ token scale, and how an 8B model with a modest window can serve as a root after post-training."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do reasoning (thinking) models make good RLM root models?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Only if they have output-token budget to spare. The paper reports that thinking models without sufficient output tokens struggle as RLMs, and attributes some smaller-than-expected gaps to trajectories that ran out of output tokens. A model that spends its allowance deliberating has nothing left to emit the code that does the actual work."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can an open-source model run as an RLM root?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, with caveats. Qwen3-Coder-480B-A35B gained from the harness at depth 1 (36.0% to 48.0% on OOLONG) but trailed GPT-5 badly on aggregation and needed its own prompt adjustments. A reproduction study found DeepSeek v3.2 and Kimi K2 worked at depth 1 on complex reasoning but overthought at depth 2. The strongest path for small models is post-training: RLM-Qwen3-8B, trained on 1,000 filtered trajectories, beat its base model by a median of 28.3%."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do the root model and the sub-call model have to be the same?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No, and in practice they usually should not be. The original evaluation ran GPT-5 as the root and dispatched recursive sub-calls to GPT-5-mini for cost reasons. The root does orchestration, which is the hard job; sub-calls mostly read a bounded slice and answer a narrow question, which a cheaper model handles."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Kind of Base Model Do You Need to Run an RLM?</h1>
+        <p class="lead">The spec sheet you would guess from the name -- huge context window, frontier scale -- is mostly wrong. The capabilities that actually decide whether a model works as an RLM root are quieter than that.</p>
+    </div>
+
+    <div class="blog-meta">August 2026</div>
+
+    <div class="blog-body fade-in">
+
+        <p><strong>The short version:</strong> an RLM root model needs three things. It must write correct Python in a REPL, because code is the interface to the long input. It must follow a long orchestration prompt without drifting, because the harness is instructions all the way down. And it must have output-token budget left over after any thinking, because a model that reasons itself out of tokens cannot emit the program that does the work. Context window size is the least important line on the spec sheet, and raw parameter count matters less than post-training: an 8B model tuned on 1,000 trajectories beat its own base by a median of <strong>28.3%</strong>.</p>
+
+        <p>Each of those claims comes from the original evaluation by Zhang, Kraska, and Khattab, or from the reproduction work that followed it. Here is the evidence, requirement by requirement.</p>
+
+        <h2>Why is coding ability the first requirement?</h2>
+
+        <p>Because the root model never reads the long input directly. The input sits in a Python REPL as a variable, and the root model interacts with it the only way a REPL allows: by writing code to peek into it, slice it, search it, and dispatch recursive sub-calls over pieces of it. The root model's output is a program. If the program has a syntax error, that turn produced nothing.</p>
+
+        <p>The paper states the consequence flatly: models without sufficient coding capabilities struggle as RLMs. And its evaluation shows what "struggle" costs. RLM trajectories from Qwen3-Coder-480B-A35B contained significantly more syntax errors than GPT-5 trajectories -- <strong>even on trajectories that reached a correct answer</strong>. On OOLONG-Pairs at depth 1, RLM(GPT-5) scored <strong>58.0% F1</strong> while RLM(Qwen3-Coder) scored <strong>23.1%</strong>. Same harness, same task, same recursion budget. The difference is almost entirely how reliably each model operates the REPL.</p>
+
+        <p>Note what kind of coding this is. It is not competitive programming. The root model writes short, mundane snippets: index into a string, run a regex, split on delimiters, loop over chunks, call a function. The bar is reliability on boring code, not brilliance on hard code. A model that produces one malformed cell in ten wastes a tenth of its turns, and when sub-calls inherit the same weakness, the errors compound instead of averaging out. That compounding is the first failure mode in our post on <a href="rlm-limitations-failure-modes.html">RLM limitations</a>.</p>
+
+        <h2>Does the root model need a big context window?</h2>
+
+        <p>No, and this is the part most people get backwards. The whole point of the RLM construction is that the full input never enters the root model's context. The root context holds the system prompt, the code the model has written, and the REPL's observations -- previews, line counts, sub-call results. Everything else stays in the environment.</p>
+
+        <p>That is how the method processes inputs up to two orders of magnitude beyond model context limits, at the <strong>10M+ token</strong> scale, while the root models themselves have ordinary windows -- GPT-5's is 272K tokens, and the post-trained Qwen3-8B root operates with a far smaller one. What the window has to fit is the orchestration loop, not the data. A long trajectory with many turns of code and observations needs room, so a few-thousand-token window would choke; but the difference between a 128K window and a 1M window is close to irrelevant for the root's job.</p>
+
+        <p>If anything, the causality runs the other way: the smaller the base model's window, the more the recursive strategy is worth. Our piece on <a href="why-context-windows-are-the-wrong-abstraction.html">why context windows are the wrong abstraction</a> makes the general version of that argument.</p>
+
+        <h2>Do thinking models make good RLM roots?</h2>
+
+        <p>Only with a caveat that the paper is unusually specific about: thinking models without sufficient output tokens struggle as RLMs. The authors attribute some smaller-than-expected gaps directly to trajectories that ran out of output tokens.</p>
+
+        <p>The mechanism is simple. A reasoning model spends part of its per-turn output allowance on deliberation before it emits anything actionable. In a chat setting that is fine; the deliberation is the product. In an RLM turn, the deliverable is a code cell, and the code comes after the thinking. Cap the output at a budget the model's reasoning habit can eat, and the turn ends mid-thought with no program emitted -- a wasted turn that looks, from the harness's perspective, identical to a syntax error.</p>
+
+        <p>So a thinking model can be an excellent root -- the strongest results in the paper come from one -- but the output ceiling has to be provisioned for thinking plus code, not for code alone. If you benchmark several roots under a uniform output cap, you have quietly handicapped the ones that reason longest.</p>
+
+        <h2>Can an open-source model be the root?</h2>
+
+        <p>Yes, and the record is specific about which and how.</p>
+
+        <p><strong>Qwen3-Coder-480B-A35B</strong> works at depth 1, with real gains over running the same model as a plain long-context call: 36.0% to <strong>48.0%</strong> on OOLONG, 20.0% to <strong>56.0%</strong> on CodeQA. But it trails GPT-5 badly on hard aggregation (the 23.1% versus 58.0% gap above), its trajectories carry more syntax errors, and deeper recursion amplifies both problems rather than fixing them -- see our post on <a href="how-deep-should-an-rlm-recurse.html">how deep an RLM should recurse</a>.</p>
+
+        <p><strong>DeepSeek v3.2 and Kimi K2</strong>, tested in a follow-up reproduction study, held up as depth-1 roots on complex reasoning tasks. At depth 2 they overthought: accuracy degraded on simple retrieval and execution time inflated from <strong>3.6 seconds to 344.5 seconds</strong>. Capable open-source agentic models clear the bar, but the depth knob is less forgiving for them than for a frontier coder.</p>
+
+        <p><strong>Qwen3-8B</strong> is the interesting case, because out of the box it does not clear the bar -- and post-training gets it there cheaply. RLM-Qwen3-8B was trained on just <strong>1,000 filtered trajectories</strong> generated by Qwen3-Coder-480B-A35B, and outperforms its own base model by a median of <strong>28.3%</strong> across the evaluation tasks, approaching vanilla GPT-5 on three of the long-context benchmarks. The lesson: for small models, RLM competence is a trainable skill, not an emergent property of scale. Our post on <a href="small-models-big-contexts-rlm-efficiency.html">small models and big contexts</a> works through the economics of that result.</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Root model</th>
+                    <th>Works as RLM root?</th>
+                    <th>Evidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>GPT-5</td>
+                    <td>Yes, best documented</td>
+                    <td>58.0% F1 on OOLONG-Pairs at depth 1; gains grow with depth</td>
+                </tr>
+                <tr>
+                    <td>Qwen3-Coder-480B-A35B</td>
+                    <td>Depth 1 only</td>
+                    <td>Gains on OOLONG and CodeQA; more syntax errors; 23.1% F1 on OOLONG-Pairs</td>
+                </tr>
+                <tr>
+                    <td>DeepSeek v3.2 / Kimi K2</td>
+                    <td>Depth 1 only</td>
+                    <td>Gains on complex reasoning; overthinking at depth 2 (3.6s to 344.5s)</td>
+                </tr>
+                <tr>
+                    <td>Qwen3-8B (vanilla)</td>
+                    <td>No</td>
+                    <td>Insufficient without tuning</td>
+                </tr>
+                <tr>
+                    <td>RLM-Qwen3-8B (post-trained)</td>
+                    <td>Yes</td>
+                    <td>Median +28.3% over base; approaches GPT-5 on three tasks</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Does the same setup transfer between base models?</h2>
+
+        <p>No, and the authors say so themselves: using the exact same RLM system prompt across all models can be problematic. Their concrete example is telling -- they had to add a sentence to the system prompt for Qwen3-Coder specifically to stop it from firing off too many recursive sub-calls. One model needs a leash; another needs a nudge.</p>
+
+        <p>This is an instruction-following requirement hiding inside a portability warning. The RLM harness is a long prompt describing an unusual job: you are in a REPL, the input is a variable, here is how to call yourself, here is when to stop. Models differ in how faithfully they inhabit that role, and the differences do not show up until you run trajectories. Budget for per-model prompt tuning; a harness tuned for one root is, in practice, a harness for that root.</p>
+
+        <h2>Do the root and the sub-calls need the same model?</h2>
+
+        <p>No. The original evaluation ran GPT-5 as the root and dispatched recursive sub-calls to <strong>GPT-5-mini</strong>, explicitly for cost reasons. The asymmetry is principled, not just cheap: the root does the hard job -- decomposition, orchestration, deciding when the answer is settled -- while a typical sub-call reads a bounded slice and answers a narrow question. The capability bar for the leaf is genuinely lower than for the root.</p>
+
+        <p>This is also the shape of the post-training story: RLM-Qwen3-8B learned its root behavior from trajectories written by a much larger teacher. Strong root, cheap leaves, distill downward when you need the root itself to be small.</p>
+
+        <h2>The checklist</h2>
+
+        <p>Choosing a base model for an RLM, in order of importance: reliable code emission in a REPL (measure the syntax-error rate per cell, not a coding benchmark score); faithful instruction following on a long orchestration prompt, tuned per model; output-token headroom after thinking; and a context window big enough for the trajectory, which almost any modern window is. Parameter count buys you depth tolerance -- frontier coders profit from depth 2 and 3 where everyone else should stay at depth 1 -- and post-training on a thousand good trajectories buys a small model a seat at the table.</p>
+
+        <p>The surprise, given the technique's name, is that nothing on that list says "long context." The base model you need is a careful junior programmer with good working habits. The recursion supplies the rest.</p>
+
+    </div>
+
+    <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (revised May 2026). <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>"Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615. Depth ablations with DeepSeek v3.2 and Kimi K2 on S-NIAH and OOLONG. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Qwen Team. "Qwen3 Technical Report." arXiv:2505.09388. Base models for Qwen3-8B and Qwen3-Coder-480B-A35B. <a href="https://arxiv.org/abs/2505.09388">arxiv.org/abs/2505.09388</a></li>
+            <li>OOLONG and OOLONG-Pairs: semantic labeling and pairwise aggregation benchmarks used in the RLM evaluation.</li>
+            <li>CodeQA: repository-scale code understanding, 23K to 4.2M tokens.</li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is the most important capability for an RLM base model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Coding ability. The root model of an RLM operates a Python REPL where the long input is stored as a variable, so its output is a program, not prose. The original paper states plainly that models without sufficient coding capabilities struggle as RLMs. In its evaluation, Qwen3-Coder trajectories contained significantly more syntax errors than GPT-5 trajectories, even on trajectories that ultimately reached a correct answer, and that gap tracked the accuracy gap: 58.0% versus 23.1% F1 at depth 1 on OOLONG-Pairs.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the RLM root model need a large context window?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The window only needs to hold the orchestration loop: the system prompt, the code the model writes, and REPL observations. The full input never enters the root context; it lives in the environment as a variable. That is how the method processes inputs two orders of magnitude beyond model context limits, at the 10M+ token scale, and how an 8B model with a modest window can serve as a root after post-training.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do reasoning (thinking) models make good RLM root models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Only if they have output-token budget to spare. The paper reports that thinking models without sufficient output tokens struggle as RLMs, and attributes some smaller-than-expected gaps to trajectories that ran out of output tokens. A model that spends its allowance deliberating has nothing left to emit the code that does the actual work.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can an open-source model run as an RLM root?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, with caveats. Qwen3-Coder-480B-A35B gained from the harness at depth 1 (36.0% to 48.0% on OOLONG) but trailed GPT-5 badly on aggregation and needed its own prompt adjustments. A reproduction study found DeepSeek v3.2 and Kimi K2 worked at depth 1 on complex reasoning but overthought at depth 2. The strongest path for small models is post-training: RLM-Qwen3-8B, trained on 1,000 filtered trajectories, beat its base model by a median of 28.3%.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do the root model and the sub-call model have to be the same?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No, and in practice they usually should not be. The original evaluation ran GPT-5 as the root and dispatched recursive sub-calls to GPT-5-mini for cost reasons. The root does orchestration, which is the hard job; sub-calls mostly read a bounded slice and answer a narrow question, which a cheaper model handles.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

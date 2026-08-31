@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [What Kind of Base Model Do You Need to Run an RLM? | rlm.md](https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html)
 - [How Deep Should a Recursive Language Model Recurse? | rlm.md](https://rlm.md/blog/how-deep-should-an-rlm-recurse.html)
 - [How Do You Evaluate a Recursive Language Model? | rlm.md](https://rlm.md/blog/how-to-evaluate-a-recursive-language-model.html)
 - [What Are the Limitations of Recursive Language Models? | rlm.md](https://rlm.md/blog/rlm-limitations-failure-modes.html)
