@@ -84,8 +84,8 @@
                 <h2>Context windows are a lie</h2>
             </div>
             <div>
-                <p>GPT-5 advertises a 272K token context window. Sounds generous. But feed it a task that requires dense reasoning over all 272K tokens -- not just finding a needle, but actually processing every line -- and performance falls off a cliff. This is called <strong>context rot</strong>, and every model suffers from it.</p>
-                <p>The industry response has been to make windows bigger. 1M tokens. 10M tokens. But bigger windows don't solve the fundamental issue: Transformers degrade on long, information-dense inputs regardless of what fits technically.</p>
+                <p>When the RLM paper landed, GPT-5's advertised context window was 272K tokens. Sounds generous. But feed a model a task that requires dense reasoning over all 272K tokens -- not just finding a needle, but actually processing every line -- and performance falls off a cliff. This is called <strong>context rot</strong>, and every model suffers from it.</p>
+                <p>The industry response has been to make windows bigger. GPT-5.5 shipped a 1M-token window in April 2026 (<a href="https://openai.com/index/introducing-gpt-5-5/">OpenAI</a>). But bigger windows don't solve the fundamental issue: Transformers degrade on long, information-dense inputs regardless of what fits technically.</p>
                 <p>RLMs take a different approach. Instead of forcing the entire prompt through the neural network at once, they let the model <strong>programmatically examine, decompose, and recursively call itself</strong> over pieces of the input. The prompt lives in a REPL environment as a variable. The model writes code to slice it, process the slices, and aggregate results.</p>
                 <p>The result: effective processing of 10M+ token inputs. Not with summarization hacks or retrieval tricks. With actual dense semantic work across the entire input.</p>
             </div>
@@ -229,7 +229,7 @@
                 <p>RLM-Qwen3-8B -- an 8-billion parameter model post-trained on just 1,000 samples -- outperforms the base Qwen3-8B by <strong>28.3% on average</strong> across four diverse long-context benchmarks. It approaches the quality of vanilla GPT-5 on three of them.</p>
                 <p>At the frontier scale, RLM(GPT-5) maintains strong performance on inputs up to 2^18 tokens (262K+), while vanilla GPT-5 degrades sharply as inputs grow. On OOLONG-Pairs -- a task requiring quadratic-complexity reasoning -- GPT-5 scores less than 0.1% F1. The RLM version scores 58%.</p>
                 <p>The cost? Comparable. At the median, RLM runs are actually <em>cheaper</em> than base model calls on GPT-5, because the model selectively examines context rather than ingesting everything at once.</p>
-                <p>The ecosystem is already moving. DSPy (v3.1.2+) ships with built-in RLM support. Google's Agent Development Kit has an enterprise-ready implementation with lazy file loading and parallel sub-calls. VentureBeat, InfoQ, and Towards Data Science have all published deep dives. In August 2026, Prime Intellect open-sourced Prime Agent, a coding harness built on the RLM abstraction: the agent's context lives as variables in a persistent IPython kernel, and sub-agents are called as functions from inside the REPL (<a href="https://www.primeintellect.ai/blog/prime-agent">Prime Intellect, August 2026</a>). This isn't a paper that got filed away -- it's being adopted.</p>
+                <p>The ecosystem is already moving. DSPy (v3.1.2+) ships with built-in RLM support. Google's Agent Development Kit has an enterprise-ready implementation with lazy file loading and parallel sub-calls. VentureBeat, InfoQ, and Towards Data Science have all published deep dives. In August 2026, Prime Intellect open-sourced Prime Agent, a coding harness built on the RLM abstraction: the agent's context lives as variables in a persistent IPython kernel, and sub-agents are called as functions from inside the REPL (<a href="https://www.primeintellect.ai/blog/prime-agent">Prime Intellect, August 2026</a>). The Prime Agent team published a formal paper on August 24, 2026, reporting that the harness lifts ARC-AGI-3 Best@1 from 30% to 95.5% -- above the 95.4% human expert baseline (<a href="https://arxiv.org/abs/2608.23552">arXiv:2608.23552</a>). This isn't a paper that got filed away -- it's being adopted.</p>
                 <div class="callout" style="margin-top:2rem;">
                     <p>"It's a partially observable problem that you're giving the LM, where it can make logical decisions based on the structure of the task and context." -- Alex Zhang, MIT CSAIL</p>
                 </div>
@@ -241,7 +241,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
 </footer>
 
 <script>
