@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [RLM vs Context Compaction: Which Handles Long Sessions Better? | rlm.md](https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html)
 - [Are RLMs Slower Than a Single Long-Context Call? | rlm.md](https://rlm.md/blog/are-rlms-slower-than-a-single-long-context-call.html)
 - [What Kind of Base Model Do You Need to Run an RLM? | rlm.md](https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html)
 - [How Deep Should a Recursive Language Model Recurse? | rlm.md](https://rlm.md/blog/how-deep-should-an-rlm-recurse.html)

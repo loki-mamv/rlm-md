@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLM vs Context Compaction: Which Handles Long Sessions Better? | rlm.md</title>
+    <meta name="description" content="Compaction wins on linear work with recent state. RLMs win when a session needs verbatim recall, aggregation, or corrections. The 26% gap, costs, and a hybrid.">
+    <meta name="keywords" content="RLM vs compaction, context compaction, context editing, recursive language model long sessions, context rot, lost in the middle, LongMemEval, agent memory, summarization vs recursion">
+    <link rel="canonical" href="https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html">
+    <meta property="og:title" content="RLM vs Context Compaction: Which Handles Long Sessions Better?">
+    <meta property="og:description" content="Compaction summarizes and forgets; an RLM keeps the source and greps it. When each one wins for long agent sessions, with the measured numbers and a hybrid design.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="RLM vs Context Compaction: Which Handles Long Sessions Better?">
+    <meta name="twitter:description" content="RLM vs compaction for long sessions: what each keeps, what each loses, and when the 26% median gap matters.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM vs compaction, context compaction, context editing, recursive language model long sessions, context rot, lost in the middle, LongMemEval, agent memory, summarization vs recursion">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html#article",
+      "headline": "RLM vs Context Compaction: Which Handles Long Sessions Better?",
+      "description": "Compaction wins on linear work with recent state. RLMs win when a session needs verbatim recall, aggregation, or corrections. The 26% gap, costs, and a hybrid.",
+      "url": "https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html",
+      "datePublished": "2026-09-03",
+      "dateModified": "2026-09-03",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html#article"
+      },
+      "wordCount": "1531"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does compaction lose information permanently?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "On the server side, yes. Anthropic's API drops all content blocks before the compaction block on later requests, and OpenAI's compaction item is opaque. Your client can still keep the full history locally, but the model no longer sees it unless you build a way to feed pieces back in."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is an RLM the same as giving the agent a memory database?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. A memory database returns pre-indexed chunks by similarity. An RLM holds the raw history as a variable and lets the model write code to peek, grep, slice, and sub-call over it. The retrieval strategy is chosen per query by the model, not fixed at indexing time."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which is cheaper per session, compaction or an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Compaction, on most sessions. It adds one summary call per trigger and then runs every turn on a small context. RLM runs are cheaper than a base call at the median in the original paper but more expensive on average because of outlier trajectories, and they are slower on every query."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should a coding agent switch from compaction to an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not wholesale. Keep compaction and context editing for the main thread, persist the full transcript, and add a recursive lookup tool the agent calls only when a question references the past. The reproduction study found that recursion on simple retrieval degrades accuracy, so routing matters."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does context editing count as compaction?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It is a narrower operation. Context editing clears old tool results or thinking blocks and replaces them with placeholders; nothing is summarized. Compaction rewrites the whole prior conversation into a summary. Both shrink the working context, and both are lossy."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>RLM vs Context Compaction: Which Handles Long Sessions Better?</h1>
+        <p class="lead">Compaction summarizes the past and moves on. An RLM keeps the past and reads it on demand. Which one you want depends on whether the summary can be trusted to guess your next question.</p>
+    </div>
+
+    <div class="blog-meta">September 3, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> compaction handles long sessions well enough when the work is linear and the facts that matter are recent. An RLM handles them better when the session holds specific facts that must be recalled verbatim, when the answer depends on many scattered parts of the history, or when a summary would have to guess what matters later. The measured evidence: in the original RLM evaluation, RLM(GPT-5) beat a compaction agent by a median of <strong>26%</strong> across four long-context benchmarks. Compaction is cheaper and faster per turn. Recursion keeps the original text and pays for it in round trips.</p>
+
+        <p>Both approaches attack the same problem. A session that runs for hours fills the window, and quality drops long before the hard limit. The RLM authors describe it in their blog: "as the conversation goes on, the model gets...dumber?" Chroma's context rot study measured it across 18 models, and Liu et al. showed the U-shaped position curve two years earlier. The question is what to do with the parts you shrink.</p>
+
+        <h2>What does compaction actually keep and drop?</h2>
+
+        <p>Compaction replaces old turns with a model-written summary. Anthropic's server-side compaction triggers when input tokens reach a threshold (<strong>150,000</strong> by default, with a floor of 50,000). The API generates a summary, writes it into a <code>compaction</code> block, and "automatically drops all content blocks prior to the <code>compaction</code> block." OpenAI's Responses API does the same job through a <code>compact_threshold</code> setting or a standalone <code>/responses/compact</code> endpoint. Its compaction item is "opaque and not intended to be human-interpretable," and it "carries forward key prior state and reasoning into the next run using fewer tokens."</p>
+
+        <p>Context editing is the lighter cousin. Anthropic's <code>clear_tool_uses_20250919</code> strategy removes old tool results once the prompt passes <strong>100,000</strong> input tokens, keeps the three most recent by default, and swaps each cleared result for placeholder text.</p>
+
+        <p>Both mechanisms are lossy by design, and the docs say so. Anthropic's context engineering guide describes what Claude Code's compaction keeps ("architectural decisions, unresolved bugs, and implementation details") and what it discards ("redundant tool outputs or messages"). The summarizer decides what is important before it knows what the next question will be. On Claude Fable 5.1 and Claude Mythos 5.1 the compaction docs add a second loss: thinking blocks from before a compaction block "aren't carried forward, so the summary is all the model has of that earlier work."</p>
+
+        <h2>What does an RLM keep that a summary cannot?</h2>
+
+        <p>The original text. An RLM treats the long prompt as "part of an external environment" and gives the root model "a symbolic handle to the user prompt" that it can manipulate "without copying text into the root context window." A session history stored this way is never summarized away. The root model peeks at it, greps it, slices it, and hands slices to fresh sub-calls. Any fact from turn 3 is still retrievable at turn 300, byte for byte.</p>
+
+        <p>That is the core difference. A compaction summary is a single, early, irreversible decision about relevance. An RLM makes that decision late, per query, and can make it again. The RLM paper's compaction baseline is "an iterative agent that compacts the context as it is filled," one that will "iteratively accumulate the documents and summarize when full." On OOLONG-Pairs, the task that requires aggregating pairs of chunks across the whole input, that baseline scored <strong>0.1% F1</strong> with GPT-5. RLM(GPT-5) scored <strong>76%</strong>. On plain OOLONG the gap was 46% against 56.5%. No summary can hold the pairwise structure the task needs, because the summary was written before the pairs were asked for.</p>
+
+        <p>This is the same argument made in our post on <a href="why-context-windows-are-the-wrong-abstraction.html">why context windows are the wrong abstraction</a>. The question is not how much the model can see at once. It is whether the model can go back and look.</p>
+
+        <h2>When is compaction enough?</h2>
+
+        <p>Most of the time, for coding agents. A coding session has a strong recency bias. The current file, the current error, and the current plan matter. Compaction's failure mode is losing a detail the summary did not flag, and on linear tasks that detail is usually recoverable by re-reading the file or re-running the command.</p>
+
+        <p>Compaction is enough when:</p>
+        <ul>
+            <li>The task is one long thread, and old state is superseded rather than needed again.</li>
+            <li>The facts that matter live on disk or in a database, so the agent can re-fetch them.</li>
+            <li>You can steer the summary. Claude Code accepts <code>/compact Focus on code samples and API usage</code>, or a compact-instructions block in <code>CLAUDE.md</code>.</li>
+        </ul>
+
+        <p>The Chroma result cuts both ways. On LongMemEval, a focused prompt of about 300 tokens holding only the relevant context beat a full prompt of about 113k tokens across the models tested. The difference is whether the discarded tokens are gone or merely out of the window.</p>
+
+        <h2>When does recursion win?</h2>
+
+        <p>Whenever the answer depends on a specific earlier fact that the summary cannot be trusted to have kept. Four cases show up repeatedly:</p>
+
+        <ol>
+            <li><strong>Needle retrieval across the session.</strong> "What port did we set in the config at the start?" A summary might have kept it. An RLM greps for it. LongMemEval found "a 30% accuracy drop" for commercial chat assistants and long-context LLMs "on memorizing information across sustained interactions."</li>
+            <li><strong>Verifiable facts versus paraphrase.</strong> A summary of a stack trace is not a stack trace. If the output must quote or match the source, recursion returns the source.</li>
+            <li><strong>Aggregation over the whole history.</strong> Counting, pairing, or cross-referencing many turns is the OOLONG-Pairs shape. Compaction scored 0.1% there.</li>
+            <li><strong>Knowledge updates.</strong> A fact stated at turn 10 and corrected at turn 200. A summary written at turn 150 carries the stale version and cannot know it is stale. An RLM reading the raw history sees both and can order them.</li>
+        </ol>
+
+        <p>Recursion loses on the opposite cases. The reproduction study found that "using RLMs on simple retrieval tasks paradoxically degrades performance," and that depth 2 degraded results where depth 1 had helped. If the base model can answer from the compacted context, do not recurse.</p>
+
+        <h2>What do the two approaches cost in latency and tokens?</h2>
+
+        <p>Compaction costs one summary call per trigger. Anthropic's docs note that it "requires an additional sampling step, which contributes to rate limits and billing," and the Claude Code cost guide warns that "compacting a large context is itself a large request." After that, every turn runs on a small context. Context editing is cheaper still, but it invalidates the prompt cache at the clearing point, which is why its <code>clear_at_least</code> parameter exists.</p>
+
+        <p>Recursion costs round trips. The reference RLM implementation runs every sub-call blocking and sequential, and the reproduction study measured a base call at <strong>3.6 seconds</strong> against <strong>344.5 seconds</strong> at depth 2. The RLM paper reports that the median RLM run is cheaper than the median base run, "but more expensive on average due to outlier trajectories." The full accounting is in <a href="are-rlms-slower-than-a-single-long-context-call.html">our latency post</a>. Compaction is cheap and fast on every turn. Recursion is cheap at the median, slow every time, and expensive in the tail.</p>
+
+        <h2>Can you combine them?</h2>
+
+        <p>Yes, and the best current systems already do. The pattern is: compact the working context, but never delete the original. Keep the raw history in a store the model can query, and let a recursive call reach back into it when the summary is not enough. Voltropy's LCM does this with an immutable message store under a hierarchical summary; we covered it in <a href="lcm-lossless-context-management-voltropy.html">our LCM write-up</a>. Anthropic's own guidance points the same way. It describes sub-agents that explore "using tens of thousands of tokens or more" but return "only a condensed, distilled summary" of "often 1,000-2,000 tokens." That is a depth-1 RLM with a compaction step at the boundary.</p>
+
+        <p>A practical hybrid for a long agent session:</p>
+        <ul>
+            <li>Use context editing for tool results. They are the bulk of a coding session and the easiest to re-fetch.</li>
+            <li>Use compaction for the conversational thread, with an instruction to keep decisions, open bugs, and named values.</li>
+            <li>Persist the full transcript as it happens.</li>
+            <li>Give the agent a tool that runs an RLM-style query over the transcript: grep first, sub-call over the matching slices, return the verbatim span.</li>
+            <li>Route to that tool only when the question references the past. Recursion on easy questions makes things worse.</li>
+        </ul>
+
+        <h2>The bottom line</h2>
+
+        <p>Compaction is a bet that the summarizer can predict what you will need. It is a good bet for linear work with recent state, and it is cheap. Recursion refuses the bet. It keeps the source and pays in latency to consult it. For needle retrieval across a long session, for anything that must be quoted rather than paraphrased, and for aggregation over the whole history, recursion wins, and the 26% median gap in the RLM paper is the measured size of that win. For everything else, compact, keep the transcript, and add a recursive lookup for the moments when the summary runs out.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (revised May 2026). Compaction baseline definition, 26% median gap, OOLONG and OOLONG-Pairs scores, cost variance. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth-1 gains, depth-2 degradation, retrieval-task regression, 3.6s to 344.5s latency. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Zhang, A. L. "Recursive Language Models." Project blog, 2025. Context rot motivation, peek/grep/partition strategies, blocking sub-call caveat. <a href="https://alexzhang13.github.io/blog/2025/rlm/">alexzhang13.github.io/blog/2025/rlm</a></li>
+            <li>Anthropic. "Compaction." Claude Developer Platform docs. Trigger thresholds, compaction block semantics, thinking-block loss, billing note. <a href="https://platform.claude.com/docs/en/build-with-claude/compaction">platform.claude.com/docs/en/build-with-claude/compaction</a></li>
+            <li>Anthropic. "Context editing." Claude Developer Platform docs. clear_tool_uses_20250919 defaults, placeholder replacement, clear_at_least and cache invalidation. <a href="https://platform.claude.com/docs/en/build-with-claude/context-editing">platform.claude.com/docs/en/build-with-claude/context-editing</a></li>
+            <li>OpenAI. "Compaction." OpenAI API docs. compact_threshold, /responses/compact endpoint, opaque compaction item. <a href="https://developers.openai.com/api/docs/guides/compaction">developers.openai.com/api/docs/guides/compaction</a></li>
+            <li>Anthropic. "Effective context engineering for AI agents." Anthropic Engineering, 2025. What Claude Code compaction keeps and discards; sub-agent summary sizes. <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a></li>
+            <li>Anthropic. "Manage costs effectively." Claude Code docs. /compact instructions, CLAUDE.md compact block, compaction as a large request. <a href="https://code.claude.com/docs/en/costs">code.claude.com/docs/en/costs</a></li>
+            <li>Hong, K., Troynikov, A., Huber, J. "Context Rot: How Increasing Input Tokens Impacts LLM Performance." Chroma Research, 2025. 18-model evaluation, focused vs full prompt on LongMemEval. <a href="https://www.trychroma.com/research/context-rot">www.trychroma.com/research/context-rot</a></li>
+            <li>Liu, N. F. et al. "Lost in the Middle: How Language Models Use Long Contexts." TACL, 2023 (arXiv:2307.03172). U-shaped position curve. <a href="https://arxiv.org/abs/2307.03172">arxiv.org/abs/2307.03172</a></li>
+            <li>Wu, D. et al. "LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory." arXiv:2410.10813, 2024. 30% accuracy drop across sustained interactions. <a href="https://arxiv.org/abs/2410.10813">arxiv.org/abs/2410.10813</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does compaction lose information permanently?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">On the server side, yes. Anthropic&#x27;s API drops all content blocks before the compaction block on later requests, and OpenAI&#x27;s compaction item is opaque. Your client can still keep the full history locally, but the model no longer sees it unless you build a way to feed pieces back in.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is an RLM the same as giving the agent a memory database?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. A memory database returns pre-indexed chunks by similarity. An RLM holds the raw history as a variable and lets the model write code to peek, grep, slice, and sub-call over it. The retrieval strategy is chosen per query by the model, not fixed at indexing time.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Which is cheaper per session, compaction or an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Compaction, on most sessions. It adds one summary call per trigger and then runs every turn on a small context. RLM runs are cheaper than a base call at the median in the original paper but more expensive on average because of outlier trajectories, and they are slower on every query.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should a coding agent switch from compaction to an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not wholesale. Keep compaction and context editing for the main thread, persist the full transcript, and add a recursive lookup tool the agent calls only when a question references the past. The reproduction study found that recursion on simple retrieval degrades accuracy, so routing matters.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does context editing count as compaction?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It is a narrower operation. Context editing clears old tool results or thinking blocks and replaces them with placeholders; nothing is summarized. Compaction rewrites the whole prior conversation into a summary. Both shrink the working context, and both are lossy.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
