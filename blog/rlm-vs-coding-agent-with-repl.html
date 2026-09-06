@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the Difference Between an RLM and a Coding Agent With a REPL? | rlm.md</title>
+    <meta name="description" content="Both run a code loop. An RLM keeps the prompt as a REPL variable, calls itself on slices, and returns a string when a variable is set. Measured vs Claude Code.">
+    <meta name="keywords" content="RLM vs coding agent, recursive language model REPL, Claude Code vs RLM, Codex CLI, SWE-agent, OpenHands, CodeAct, llm_query, FINAL_VAR, context offloading, subagents vs recursion">
+    <link rel="canonical" href="https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html">
+    <meta property="og:title" content="What Is the Difference Between an RLM and a Coding Agent With a REPL?">
+    <meta property="og:description" content="Claude Code, Codex CLI, and SWE-agent all have a shell. An RLM has one too. What the two share, what only the RLM does, and how they scored side by side.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Is the Difference Between an RLM and a Coding Agent With a REPL?">
+    <meta name="twitter:description" content="RLM vs coding agent with a REPL: same loop, different home for the context, and recursion the shell cannot fake.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM vs coding agent, recursive language model REPL, Claude Code vs RLM, Codex CLI, SWE-agent, OpenHands, CodeAct, llm_query, FINAL_VAR, context offloading, subagents vs recursion">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html#article",
+      "headline": "What Is the Difference Between an RLM and a Coding Agent With a REPL?",
+      "description": "Both run a code loop. An RLM keeps the prompt as a REPL variable, calls itself on slices, and returns a string when a variable is set. Measured vs Claude Code.",
+      "url": "https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html",
+      "datePublished": "2026-09-06",
+      "dateModified": "2026-09-06",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html#article"
+      },
+      "wordCount": "1537"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I turn Claude Code or Codex CLI into an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Partly. Write the long input to a file and the agent behaves like an RLM(depth=0), which the paper found competitive on retrieval-shaped tasks. To get depth 1 you need a function the agent's code can call that runs a model on a slice and returns the string. Subagents are a weaker substitute because each one is dispatched as a typed message, not in a loop."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is CodeAct the same thing as an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No, and the paper tests both. CodeAct runs Python inside a ReAct loop but puts the user prompt directly in the model's context. The RLM puts the prompt in the REPL as a variable. The paper reports a 130% median gain over CodeAct with sub-calls, which isolates the effect of where the prompt lives."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does an RLM need a sandbox the way a coding agent does?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, for the same reason: the model writes and runs arbitrary code. The reference implementation supports local, IPython, Docker, Modal, and other execution environments. The paper lists sandboxed REPLs as future work alongside asynchronous sub-calls."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which model runs the recursive sub-calls?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It does not have to be the root model. In the paper's GPT-5 experiments the root was GPT-5 and every sub-call went to GPT-5-mini, chosen for cost. The Qwen3-Coder runs used the same model at both levels. The fine-tuned RLM-Qwen3-8B was trained on trajectories with Qwen3-8B sub-calls."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why did the RLM paper benchmark Claude Code at all?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Because a coding agent with a file on disk is the closest existing system to an RLM. The authors wanted to show which gains come from offloading context to an environment, which any shell provides, and which come from programmatic recursion, which only the RLM provides. Claude Code with offloading matched the RLM on CodeQA and lost badly on OOLONG-Pairs."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Is the Difference Between an RLM and a Coding Agent With a REPL?</h1>
+        <p class="lead">Claude Code, Codex CLI, SWE-agent, and an RLM all give a model a code interpreter and a loop. The RLM moves the prompt into that interpreter and lets the code call the model back.</p>
+    </div>
+
+    <div class="blog-meta">September 6, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> an RLM and a coding agent with a REPL run the same outer loop: the model writes code, an interpreter runs it, and the output feeds the next step. Three things differ. In an RLM the prompt is a variable inside the REPL, the code can call the same model on slices of it and collect the results, and the run ends when a REPL variable is marked final. A coding agent treats the filesystem as its environment and fills its window with what it reads; an RLM treats the input as the environment and keeps its window nearly empty.</p>
+
+        <p>The RLM authors say so in <a href="https://arxiv.org/abs/2512.24601">arXiv:2512.24601</a>: their Algorithm 2, a "deceptively similar" scaffold, also "support[s] some notion of sub-calls, external objects, and code execution." The difference is "where the prompt and intermediate values live and where recursion occurs."</p>
+
+        <h2>What do an RLM and a coding agent actually share?</h2>
+
+        <p>The tool loop. Anthropic describes Claude Code as cycling through "gather context, take action, and verify results," with tools that "read your code, edit files, run commands" and feed each result into the next decision. OpenAI's Codex CLI docs say the agent can "inspect code, make changes, run commands, and automate repeatable work without leaving your terminal." SWE-agent's agent-computer interface lets the model "create and edit code files, navigate entire repositories, and execute tests and other programs." OpenHands agents act "by writing code, interacting with a command line, and browsing the web."</p>
+
+        <p>An RLM does the same thing with a narrower toolset. The paper "equip[s] an LLM with a Python REPL, where all tools, including sub-LM or sub-RLM calls, are available as modules." Each iteration "executes code in the REPL, updates REPL state (intermediate variables), and collects in stdout any printed text." That is a CodeAct loop. CodeAct (<a href="https://arxiv.org/abs/2402.01030">arXiv:2402.01030</a>) proposed "executable Python code to consolidate LLM agents' actions into a unified action space."</p>
+
+        <p>Both also grep before they read. The RLM blog lists this as an emergent strategy: the model "look[s] for keywords or regex patterns to narrow down lines of interest."</p>
+
+        <h2>Where does the context live?</h2>
+
+        <p>In a coding agent, the environment is the filesystem and the shell. The task prompt, every file read, and every command output land in the context window. The paper: "prior coding agents and retrieval agents treat some designated external data source (e.g., a filesystem or a corpus of search documents) as an environment for fetching snippets. However, they can only fill up the underlying LLM's context window with snippets before facing compaction." Claude Code's docs confirm it: "As you work, context fills up. Claude compacts automatically."</p>
+
+        <p>In an RLM, the prompt is the environment. "Given a prompt P, the RLM initializes a Read-Eval-Print Loop (REPL) programming environment in which P is set as the value of a variable." The root model starts with "only (constant-size) metadata about the user prompt, like its length, a short prefix, and how to access parts of it." The paper calls this "a symbolic handle to the user prompt P, so the model can manipulate it without copying text into the root context window."</p>
+
+        <p>So a coding agent reasons about what it has loaded. An RLM reasons about a 10M-token string it never loaded, because slicing a variable costs no context. Still, the paper's Observation 2 credits the shell: "RLM(depth=0) and coding agents like Claude Code and OpenCode are able to scale beyond the context limit of the model and outperform other task-agnostic baselines on most long context settings." A file on disk plus <code>grep</code> gets you most of the way on retrieval-shaped work. We covered the compaction side in <a href="rlm-vs-context-compaction-long-sessions.html">RLM vs context compaction</a>.</p>
+
+        <h2>What does recursion add that a shell does not?</h2>
+
+        <p>A model call as a function inside the code. The RLM system prompt gives the root model <code>llm_query</code>, "a function that allows you to query an LLM (that can handle around 500K chars) inside your REPL environment." For depth above 1 it adds <code>rlm_query(context, query)</code> for "complex sub-tasks that benefit from iterative" processing. The model then writes a loop: chunk the variable, call <code>llm_query</code> on each chunk, store the returns, and call <code>llm_query</code> once more to aggregate.</p>
+
+        <p>A shell cannot do this. <code>grep</code> matches a pattern. It cannot classify a line or judge whether two paragraphs contradict each other. OOLONG-Pairs needs that work over every pair of chunks, and the authors saw the RLM "perform the necessary semantic transformation line-by-line through recursive sub-calls, while the ablation without sub-calls is forced to use keyword heuristics." This is the pattern in <a href="decompose-recurse-aggregate-pattern.html">decompose, recurse, aggregate</a>.</p>
+
+        <p>The recursion is also programmatic, not conversational. The paper contrasts RLMs with "self-delegation approaches" that let LLMs "invoke themselves as sub-agents" but are "handicapped by the underlying LLM's limited output lengths because they are designed to verbalize sub-calls autoregressively rather than producing them programmatically." A model that types each delegation as a message can launch a handful. A model that writes <code>for chunk in chunks:</code> can launch a thousand.</p>
+
+        <h2>Is a coding agent with subagents already an RLM?</h2>
+
+        <p>Closer, but no. Claude Code subagents run in their "own context window," return "only the summary," and by default nest "up to three layers below the main conversation." Two things are still missing. The parent still holds the task and its reads in its window; the input is not a variable. And the parent delegates by writing a task message, one at a time, which is the autoregressive verbalization the paper flags. No loop dispatches a sub-call per slice and collects the returns into a variable.</p>
+
+        <p>The blog names the split: RLMs take "a context-centric view rather than a problem-centric view." An RLM decomposes the context, on "the principle that fundamentally, LMs should decide how to break down a problem."</p>
+
+        <h2>How does each one decide it is done?</h2>
+
+        <p>A coding agent is done when the world is right: tests pass, the diff is written, the PR is open. Its output is a side effect on the filesystem, and its final message is a report about that side effect. Claude Code's docs describe the loop as repeating "until task complete."</p>
+
+        <p>An RLM is done when a variable is set. "Once the RLM sets the variable Final inside the REPL, iteration stops and the value in Final is returned as the response." The prompted version wraps the answer in <code>FINAL(answer)</code> or points at a variable with <code>FINAL_VAR(variable_name)</code>. The output is a string, because "an RLM exposes the same external interface as an LLM or a reasoning model: it accepts a string prompt of arbitrary structure and produces a string response." It replaces a model call, not an agent.</p>
+
+        <p>The authors admit this boundary is fragile. "Distinguishing between a final answer and a thought is brittle for RLMs." The model sometimes "outputs its plan as a final answer." A coding agent has no equivalent failure, because its stopping condition is external.</p>
+
+        <h2>How did the two compare when measured?</h2>
+
+        <p>The paper ran Claude Code as a baseline, "Claude Opus 4.1 with Claude Code v2.0.0," in two variants: context as the initial prompt, or "offloaded to a file." The RLM used GPT-5 as root and GPT-5-mini for sub-calls, so the rows use different models and the comparison is not clean. With that caveat, Table 1 reports:</p>
+
+        <ul>
+            <li>CodeQA (23K to 4.2M tokens): Claude Code with offloading 62.0, RLM(GPT-5, depth=1) 62.0. A shell over a file was enough.</li>
+            <li>BrowseComp-Plus (6M to 11M tokens): Claude Code with offloading 84.0, RLM(GPT-5, depth=1) 91.3.</li>
+            <li>OOLONG (131K tokens): Claude Code with offloading 48.0, RLM(GPT-5, depth=1) 56.0.</li>
+            <li>OOLONG-Pairs (32K tokens): Claude Code with offloading 6.5 F1, RLM(GPT-5, depth=1) 58.0, depth=3 76.0.</li>
+        </ul>
+
+        <p>Without offloading, Claude Code hit input limits on CodeQA and BrowseComp-Plus and scored 0.1 on OOLONG-Pairs. The paper's headline is a median gain of "13% against Claude Code" and "130% against CodeAct with sub-calls."</p>
+
+        <p>Recursion is not free. The reproduction in <a href="https://arxiv.org/abs/2603.02615">arXiv:2603.02615</a> found that depth 2, or RLM use "on simple retrieval tasks," "paradoxically degrades performance" and inflated runtime "from 3.6s to 344.5s." The original implementation made every sub-call "blocking / sequential." Our post on <a href="how-deep-should-an-rlm-recurse.html">recursion depth</a> covers when to stop.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>A coding agent with a REPL and an RLM share the code-execution loop and the habit of grepping before reading. They differ on three points. The RLM keeps the input as a variable outside the window, so the root never pays context for it. The RLM's code can call the model on slices and aggregate the returns, which a shell cannot. And the RLM returns a string when a variable is set, where a coding agent stops when the world is right. For "find and change something in this repo," a coding agent with a file on disk is already most of an RLM(depth=0), and the paper's numbers say so. For a model's judgment applied to every slice of a very long input, the recursion is the part a shell cannot fake.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3 May 2026). RLM definition, Algorithm 1 vs Algorithm 2, symbolic handle, critique of coding agents and self-delegation, Claude Code and CodeAct baselines, Table 1 scores, FINAL/FINAL_VAR brittleness. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth-2 degradation, retrieval-task regression, 3.6s to 344.5s runtime. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Zhang, A. L. "Recursive Language Models." Project blog, 2025. Context-centric vs problem-centric framing, peek and grep strategies, FINAL and FINAL_VAR, blocking sub-calls. <a href="https://alexzhang13.github.io/blog/2025/rlm/">alexzhang13.github.io/blog/2025/rlm</a></li>
+            <li>Zhang, A. L. "rlm" reference implementation, GitHub. llm_query and rlm_query functions, supported execution environments, batched sub-calls. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Anthropic. "How Claude Code works." Claude Code docs. Agentic loop phases, built-in tool categories, automatic compaction behavior. <a href="https://code.claude.com/docs/en/how-claude-code-works">code.claude.com/docs/en/how-claude-code-works</a></li>
+            <li>Anthropic. "Subagents." Claude Code docs. Separate context windows, summary-only return, three-layer nesting default. <a href="https://code.claude.com/docs/en/sub-agents">code.claude.com/docs/en/sub-agents</a></li>
+            <li>OpenAI. "Codex CLI." OpenAI developer docs. Terminal agent that inspects code, makes changes, and runs commands locally with permission settings. <a href="https://learn.chatgpt.com/docs/codex/cli">learn.chatgpt.com/docs/codex/cli</a></li>
+            <li>Wang, X. et al. "Executable Code Actions Elicit Better LLM Agents." ICML 2024 (arXiv:2402.01030). CodeAct: executable Python as a unified action space. <a href="https://arxiv.org/abs/2402.01030">arxiv.org/abs/2402.01030</a></li>
+            <li>Yang, J. et al. "SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering." arXiv:2405.15793, 2024. ACI for editing files, navigating repositories, running tests. <a href="https://arxiv.org/abs/2405.15793">arxiv.org/abs/2405.15793</a></li>
+            <li>Wang, X. et al. "OpenHands: An Open Platform for AI Software Developers as Generalist Agents." ICLR 2025 (arXiv:2407.16741). Agents that write code, use a command line, and browse the web in sandboxed runtimes. <a href="https://arxiv.org/abs/2407.16741">arxiv.org/abs/2407.16741</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I turn Claude Code or Codex CLI into an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Partly. Write the long input to a file and the agent behaves like an RLM(depth=0), which the paper found competitive on retrieval-shaped tasks. To get depth 1 you need a function the agent&#x27;s code can call that runs a model on a slice and returns the string. Subagents are a weaker substitute because each one is dispatched as a typed message, not in a loop.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is CodeAct the same thing as an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No, and the paper tests both. CodeAct runs Python inside a ReAct loop but puts the user prompt directly in the model&#x27;s context. The RLM puts the prompt in the REPL as a variable. The paper reports a 130% median gain over CodeAct with sub-calls, which isolates the effect of where the prompt lives.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does an RLM need a sandbox the way a coding agent does?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, for the same reason: the model writes and runs arbitrary code. The reference implementation supports local, IPython, Docker, Modal, and other execution environments. The paper lists sandboxed REPLs as future work alongside asynchronous sub-calls.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Which model runs the recursive sub-calls?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It does not have to be the root model. In the paper&#x27;s GPT-5 experiments the root was GPT-5 and every sub-call went to GPT-5-mini, chosen for cost. The Qwen3-Coder runs used the same model at both levels. The fine-tuned RLM-Qwen3-8B was trained on trajectories with Qwen3-8B sub-calls.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why did the RLM paper benchmark Claude Code at all?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Because a coding agent with a file on disk is the closest existing system to an RLM. The authors wanted to show which gains come from offloading context to an environment, which any shell provides, and which come from programmatic recursion, which only the RLM provides. Claude Code with offloading matched the RLM on CodeQA and lost badly on OOLONG-Pairs.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
