@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents? | rlm.md](https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html)
 - [What Is the Difference Between an RLM and a Coding Agent With a REPL? | rlm.md](https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html)
 - [RLM vs Context Compaction: Which Handles Long Sessions Better? | rlm.md](https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html)
 - [Are RLMs Slower Than a Single Long-Context Call? | rlm.md](https://rlm.md/blog/are-rlms-slower-than-a-single-long-context-call.html)

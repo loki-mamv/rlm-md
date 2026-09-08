@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents? | rlm.md</title>
+    <meta name="description" content="An RLM keeps the corpus in a REPL variable, filters it with code, and chains a sub-call per hop. RLM(GPT-5) scored 91.3% on BrowseComp-Plus at 1,000 documents.">
+    <meta name="keywords" content="RLM multi-hop question answering, recursive language models, BrowseComp-Plus, REPL variable corpus, llm_query sub-calls, regex filtering, deep research agents, long-context QA, RLM vs BM25 retrieval">
+    <link rel="canonical" href="https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html">
+    <meta property="og:title" content="How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents?">
+    <meta property="og:description" content="The corpus lives in a REPL variable. The root model writes regex filters, sends surviving slices to sub-calls, and stores each hop&#x27;s fact for the next one. RLM(GPT-5) hit 91.3% on BrowseComp-Plus with 1,000 documents where base GPT-5 scored 0.0%.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents?">
+    <meta name="twitter:description" content="How an RLM chains regex filters, sub-calls, and REPL variables to answer multi-hop questions over 6M to 11M tokens, with the BrowseComp-Plus numbers.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM multi-hop question answering, recursive language models, BrowseComp-Plus, REPL variable corpus, llm_query sub-calls, regex filtering, deep research agents, long-context QA, RLM vs BM25 retrieval">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html#article",
+      "headline": "How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents?",
+      "description": "An RLM keeps the corpus in a REPL variable, filters it with code, and chains a sub-call per hop. RLM(GPT-5) scored 91.3% on BrowseComp-Plus at 1,000 documents.",
+      "url": "https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html",
+      "datePublished": "2026-09-08",
+      "dateModified": "2026-09-08",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html#article"
+      },
+      "wordCount": "1537"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does the RLM read all 1,000 documents?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The root model never sees the full corpus. It sees the length, a short prefix, and instructions for accessing the variable. It runs code over the whole corpus to filter it, then sends only the surviving slices to sub-model calls. Scanning is CPU time in the REPL, so repeated passes cost no model tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which model answered the sub-calls in the BrowseComp-Plus runs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GPT-5-mini. The RLM paper uses GPT-5 as the root model and GPT-5-mini for recursive calls in its main GPT-5 experiments. The authors chose this split to balance capability against the cost of many sub-calls. The average cost at depth 1 was $0.99 per query."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why did base GPT-5 score 0.0% on this benchmark?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The inputs were 6M to 11M tokens and GPT-5's context window is 272K tokens. The paper marks these runs as hitting input context limits. CodeAct with sub-calls and plain Claude Code scored 0.0% for the same reason, because they load the corpus into the model's context."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is recursion depth 1 enough for multi-hop questions?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "On BrowseComp-Plus, yes. Depth 1 scored 91.3% and depths 2 and 3 scored 92.0%, so deeper recursion added under one point. The reproduction found that depth 2 made DeepSeek v3.2 and Kimi K2 worse on OOLONG and S-NIAH and multiplied wall-clock time. Use depth 2 only when a single hop needs its own chunking strategy."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Did the reproduction test BrowseComp-Plus?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Wang's reproduction ran S-NIAH and OOLONG with DeepSeek v3.2 and Kimi K2, using 20 samples per condition in a single run. Its value for multi-hop work is the failure analysis, which shows sub-calls at depth 2 answering from model priors instead of the corpus."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents?</h1>
+        <p class="lead">The corpus becomes a variable, the root model becomes a search programmer, and each hop becomes a stored fact. Here is the mechanism, with the BrowseComp-Plus numbers behind it.</p>
+    </div>
+
+    <div class="blog-meta">September 8, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> an RLM does not read the corpus. It loads the corpus into a Python REPL as a variable. The root model then writes code to search, filter, and slice that variable. Each promising slice goes to a sub-model call, and each hop of the question becomes one more round of code, sub-calls, and stored variables. On BrowseComp-Plus with 1,000 documents (6M to 11M tokens per query), RLM(GPT-5) scored <strong>91.3%</strong> at recursion depth 1. Base GPT-5 scored 0.0%, because the input did not fit its 272K-token window.</p>
+
+        <h2>Where does the corpus live during the run?</h2>
+
+        <p>In the environment, not in the model. Algorithm 1 of the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> starts by initializing a REPL with the prompt stored as a variable. The root model never sees the full string. It sees only constant-size metadata: the length, a short prefix, and instructions on how to access parts of it. Printed output is truncated the same way. The authors call this the key design choice, because it forces the model to rely on variables and sub-calls instead of polluting its own window.</p>
+
+        <p>The root model gets two handles. A <code>context</code> variable holds the prompt. An <code>llm_query</code> function sends a string to a sub-model that can handle around 500K characters. The system prompt tells the root model to batch about 200K characters into each call rather than making thousands of small ones. The run ends when the model emits <code>FINAL(answer)</code> or <code>FINAL_VAR(variable_name)</code>, which returns a variable it built in the REPL. In the main runs, GPT-5 is the root model and GPT-5-mini answers the sub-calls.</p>
+
+        <p>For BrowseComp-Plus, the variable holds 1,000 documents. In the worked example the authors publish (Query 74), that is 8.3M tokens. The model has a symbolic handle to all of it. This is the same setup our <a href="decompose-recurse-aggregate-pattern.html">decompose-recurse-aggregate</a> post describes, applied to a corpus instead of a single long document.</p>
+
+        <h2>How does the root model find candidate documents?</h2>
+
+        <p>With code, not with embeddings. The paper reports that RLMs frequently filter and interact with their context through regex. On Query 74, GPT-5 first probes the 1,000-document list with regex queries. It uses two sources for its patterns: its own priors about the event in the question, and literal keywords from the prompt such as "beauty pageant" and "festival". The paper's summary: on BrowseComp-Plus, the model "uses model priors to programmatically narrow the search space of sub-calls."</p>
+
+        <p>This step is a loop, not a lookup. A filter runs across the whole corpus, the model inspects the count and a truncated sample, and then it adjusts the pattern. Nothing is dropped by a top-k cutoff, because every pass scans the full variable. A scan costs CPU time in the REPL, not model tokens, so the root model can afford several passes before it spends a sub-call.</p>
+
+        <h2>How does one hop chain into the next?</h2>
+
+        <p>Through variables. In Query 74, the regex pass surfaces an interesting snippet in the chunk at index 6. The root model launches a recursive LM call over that snippet and asks it for information relevant to the original query. The sub-call stores its result in a variable named <code>answer6</code> and prints it for the root model to read. The sub-call reports that the answer is likely "Maria Dalmacio". The root model then decides it has enough, but it spends two more recursive calls to confirm the answer before returning it with <code>FINAL</code>. The answer is correct. The trajectory cost $0.079.</p>
+
+        <p>The general pattern is the same at every hop. Extract a fact from a candidate through a sub-call. Store the fact in a variable. Use the fact to write the next filter or the next sub-call prompt. The REPL is the working memory. The root context holds only code and truncated outputs, so a five-hop chain does not cost five documents of context.</p>
+
+        <p>At depth 2 and above, the root model also gets <code>rlm_query(context, query)</code>. That function spawns a full RLM loop with its own REPL over a sub-context. The prompt reserves it for sub-tasks that need their own chunking, and it falls back to <code>llm_query</code> at the depth limit. Figure 10 of the paper shows GPT-5 uses significantly more sub-calls on BrowseComp-Plus than on any other task.</p>
+
+        <h2>What do the BrowseComp-Plus numbers say?</h2>
+
+        <p>The benchmark comes from <a href="https://arxiv.org/abs/2508.06600">Chen et al.</a>. The full corpus has 100,195 documents and 830 queries. Each query has 6.1 evidence documents and 2.9 gold documents on average, and each document averages 5,179.2 words. The RLM paper samples 150 queries and gives each one 1,000 randomly chosen documents that include the gold and evidence documents.</p>
+
+        <p>The GPT-5 rows of Table 1 (accuracy, then average API cost per query):</p>
+
+        <ul>
+            <li>Base GPT-5: 0.0%. The input exceeded the context window.</li>
+            <li>CodeAct + BM25 retriever: 51.0%, $0.71.</li>
+            <li>CodeAct + sub-calls (context loaded into the model): 0.0%.</li>
+            <li>Compaction agent: 70.5%, $0.57.</li>
+            <li>Claude Code with context offloading (Claude Opus 4.1): 84.0%, $2.03.</li>
+            <li>OpenCode with context offloading: 94.0%, cost not reported.</li>
+            <li>RLM depth 0 (REPL, no sub-calls): 88.0%, $0.44.</li>
+            <li>RLM depth 1: 91.3%, $0.99.</li>
+            <li>RLM depth 2: 92.0%, $0.55.</li>
+            <li>RLM depth 3: 92.0%, $0.51.</li>
+        </ul>
+
+        <p>Two things stand out. First, the depth-0 ablation already scores 88.0%. Most of the gain on this task comes from the REPL handle on the corpus, and recursion adds a few points on top. The paper says this directly in Observation 2. Second, OpenCode with the corpus offloaded to a file beat the RLM by about two points. A coding agent that treats the corpus as a filesystem uses the same core idea.</p>
+
+        <p>The open model does worse. With Qwen3-Coder-480B-A35B as the root, RLM depth 1 scored 44.7%, compaction 38.0%, and CodeAct + BM25 12.7%. The paper attributes the gap to syntax errors in Qwen3-Coder's trajectories. Worse search code finds fewer candidates.</p>
+
+        <p>Appendix D.2 adds a scaling run on 20 queries as the document count grows toward 1,000. RLM(GPT-5) is the only method that keeps perfect performance at 1,000 documents on that subset, and only the iterative methods, RLM and ReAct, hold up past 100 documents. A linear extrapolation of GPT-5-mini reading 6M to 11M tokens directly comes to $1.50 to $2.75 per query, against the RLM's $0.99.</p>
+
+        <h2>How does this compare with retrieval and long-context baselines?</h2>
+
+        <p>Briefly, because our <a href="rlm-vs-rag-retrieval-augmented-generation.html">RLM vs RAG post</a> covers the architecture argument. Inside the RLM paper, the retrieval agent (CodeAct + BM25) scored 51.0% against the RLM's 91.3%. In the BrowseComp-Plus paper itself, over the full 100,195-document corpus with a search tool that returns the top 5 hits truncated to 512 tokens each, GPT-5 scored 55.9% with BM25 and 70.1% with the Qwen3-Embedding-8B retriever. That is a different setup (full corpus, 830 queries), so it is not a head-to-head. It does show that retriever quality caps the agent: swapping the retriever moved GPT-5 by 14 points. The RLM avoids that cap by running its own filters over full documents.</p>
+
+        <p>There is no long-context baseline at this scale. GPT-5's window is 272K tokens and the inputs are 6M to 11M. The compaction agent is the stand-in, and it lands 21 points below the RLM.</p>
+
+        <h2>What does the reproduction add?</h2>
+
+        <p><a href="https://arxiv.org/abs/2603.02615">Wang's reproduction</a> did not run BrowseComp-Plus. It ran S-NIAH and OOLONG with DeepSeek v3.2 and Kimi K2, 20 samples per condition, one run each. The findings still matter for hop chains, because they show what happens when sub-calls get their own REPL.</p>
+
+        <p>On OOLONG, DeepSeek v3.2 went from 0.0% as a base model to 42.1% at depth 1, then fell to 33.7% at depth 2. Kimi K2 scored 86.6% natively, 60.0% at depth 1, and 55.0% at depth 2. On S-NIAH, both base models scored 100.0%; DeepSeek fell to 85.0% at depth 1 and 70.0% at depth 2. Wall-clock time for DeepSeek on S-NIAH went from 3.6 seconds to 89.3 seconds to 344.5 seconds.</p>
+
+        <p>The failure modes are the useful part. At depth 2, DeepSeek sometimes abandoned the corpus and answered from its weights: asked for fictional "magic numbers" in the text, it returned the nuclear shell numbers 2, 8, 20, 28, 50, 82, 126. For a multi-hop chain, that is the dangerous failure. A sub-call that answers from priors breaks the chain silently, and the root model stores the bad fact and builds the next hop on it. Keep sub-calls at depth 1 unless a hop needs its own chunking. Our <a href="how-deep-should-an-rlm-recurse.html">recursion depth post</a> covers the trade-off.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>An RLM answers a multi-hop question over thousands of documents by keeping the corpus in a REPL variable, filtering it with regex and keyword code, sending only the surviving slices to sub-calls, and storing each hop's fact in a variable that shapes the next filter. On BrowseComp-Plus at 1,000 documents, that workflow took GPT-5 from 0.0% to 91.3% at $0.99 per query, and the REPL handle alone accounted for 88.0 of those points. Depth 1 is enough. Deeper recursion adds under a point here and, in the reproduction, invites sub-calls that answer from priors. The remaining gap is latency, and that is an implementation problem.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3 May 2026). Algorithm 1, the REPL system prompt, Table 1 BrowseComp-Plus scores and costs, Appendix D.2 document scaling, and the Query 74 trajectory in Appendix E.1. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. DeepSeek v3.2 and Kimi K2 accuracy, wall-clock time, and failure modes on S-NIAH and OOLONG at depths 0 to 2. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Chen, Z., Ma, X., Zhuang, S., et al. "BrowseComp-Plus: A More Fair and Transparent Evaluation Benchmark of Deep-Research Agent." arXiv:2508.06600, August 2025. Corpus size, evidence and gold document counts, retriever setup, and GPT-5 accuracy with BM25 and Qwen3-Embedding-8B. <a href="https://arxiv.org/abs/2508.06600">arxiv.org/abs/2508.06600</a></li>
+            <li>Zhang, A. L. "Recursive Language Models." Project blog post, 2025. Peek, grep, and partition-plus-map patterns, and the 1,000-document BrowseComp-Plus claim. <a href="https://alexzhang13.github.io/blog/2025/rlm/">alexzhang13.github.io/blog/2025/rlm</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the RLM read all 1,000 documents?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The root model never sees the full corpus. It sees the length, a short prefix, and instructions for accessing the variable. It runs code over the whole corpus to filter it, then sends only the surviving slices to sub-model calls. Scanning is CPU time in the REPL, so repeated passes cost no model tokens.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Which model answered the sub-calls in the BrowseComp-Plus runs?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">GPT-5-mini. The RLM paper uses GPT-5 as the root model and GPT-5-mini for recursive calls in its main GPT-5 experiments. The authors chose this split to balance capability against the cost of many sub-calls. The average cost at depth 1 was $0.99 per query.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why did base GPT-5 score 0.0% on this benchmark?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The inputs were 6M to 11M tokens and GPT-5&#x27;s context window is 272K tokens. The paper marks these runs as hitting input context limits. CodeAct with sub-calls and plain Claude Code scored 0.0% for the same reason, because they load the corpus into the model&#x27;s context.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is recursion depth 1 enough for multi-hop questions?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">On BrowseComp-Plus, yes. Depth 1 scored 91.3% and depths 2 and 3 scored 92.0%, so deeper recursion added under one point. The reproduction found that depth 2 made DeepSeek v3.2 and Kimi K2 worse on OOLONG and S-NIAH and multiplied wall-clock time. Use depth 2 only when a single hop needs its own chunking strategy.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Did the reproduction test BrowseComp-Plus?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Wang&#x27;s reproduction ran S-NIAH and OOLONG with DeepSeek v3.2 and Kimi K2, using 20 samples per condition in a single run. Its value for multi-hop work is the failure analysis, which shows sub-calls at depth 2 answering from model priors instead of the corpus.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
