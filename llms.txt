@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [How Do You Sandbox the REPL in a Recursive Language Model? | rlm.md](https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html)
 - [How Do RLMs Answer Multi-Hop Questions Across Thousands of Documents? | rlm.md](https://rlm.md/blog/how-rlms-answer-multi-hop-questions-across-thousands-of-documents.html)
 - [What Is the Difference Between an RLM and a Coding Agent With a REPL? | rlm.md](https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html)
 - [RLM vs Context Compaction: Which Handles Long Sessions Better? | rlm.md](https://rlm.md/blog/rlm-vs-context-compaction-long-sessions.html)

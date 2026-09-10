@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Do You Sandbox the REPL in a Recursive Language Model? | rlm.md</title>
+    <meta name="description" content="An RLM runs model-written code. The default local REPL keeps imports and file access, so use a no-network container, cloud sandbox, or WASM, and cap sub-calls.">
+    <meta name="keywords" content="RLM sandbox, recursive language model security, REPL sandboxing, LocalREPL, DockerREPL, prompt injection, dspy.RLM Pyodide, Modal sandbox, E2B, Daytona, untrusted code execution">
+    <link rel="canonical" href="https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html">
+    <meta property="og:title" content="How Do You Sandbox the REPL in a Recursive Language Model?">
+    <meta property="og:description" content="An RLM executes code written by a model that just read your input. Here is what the reference library&#x27;s local REPL really blocks, and how to isolate the REPL with Docker, cloud sandboxes, or WASM.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Do You Sandbox the REPL in a Recursive Language Model?">
+    <meta name="twitter:description" content="The default RLM REPL runs model code in your own process with imports allowed; here is how to sandbox it properly.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM sandbox, recursive language model security, REPL sandboxing, LocalREPL, DockerREPL, prompt injection, dspy.RLM Pyodide, Modal sandbox, E2B, Daytona, untrusted code execution">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html#article",
+      "headline": "How Do You Sandbox the REPL in a Recursive Language Model?",
+      "description": "An RLM runs model-written code. The default local REPL keeps imports and file access, so use a no-network container, cloud sandbox, or WASM, and cap sub-calls.",
+      "url": "https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html",
+      "datePublished": "2026-09-10",
+      "dateModified": "2026-09-10",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-to-sandbox-the-rlm-repl.html#article"
+      },
+      "wordCount": "1360"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is the rlm library's local REPL safe for untrusted documents?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It removes eval, exec, compile, input, globals, and locals from builtins, but it keeps __import__ and open, so model code can import os or subprocess. It runs with exec inside the same process as the RLM. The README says it should not be used for production settings."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does running the REPL in Docker stop data from leaving the machine?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not by default. The DockerREPL start command sets no network flag, and Docker containers can make outgoing connections unless you use the none network driver. Add --network none and route llm_query through a channel that does not need open networking."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can prompt injection in the input make an RLM run malicious code?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, in principle. The root model reads slices of the input and then writes the next code block, so instructions hidden in a document can steer that code. This is the indirect prompt injection pattern that Greshake et al. described in 2023. The sandbox limits the damage when the model obeys."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do sub-calls go back to the host instead of running inside the sandbox?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "So the sandbox does not need your model API keys. In the isolated environments of the reference library, a recursive sub-call is requested from the host process. The host can then enforce budgets and reject calls it does not want to serve."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What limits should an RLM sandbox enforce?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Cap REPL turns, sub-calls, wall-clock time, memory, and output size. DSPy's RLM module defaults to 20 iterations and 50 LLM calls per run. These caps stop a runaway or injected loop from turning into a large bill."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Do You Sandbox the REPL in a Recursive Language Model?</h1>
+        <p class="lead">An RLM runs code that a model wrote after it read your input. Here is what the default REPL really blocks, where hostile code comes from, and how to isolate it.</p>
+    </div>
+
+    <div class="blog-meta">September 10, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> run the REPL somewhere that cannot reach anything you care about. The default <code>local</code> environment in the reference RLM library runs model-written code with <code>exec</code> inside your own Python process. It blocks <code>eval</code> and <code>exec</code>, but it still allows <code>__import__</code> and <code>open</code>, so it is not a security boundary. For anything that reads untrusted text, use a container with networking turned off, a cloud sandbox, or a WASM interpreter. Then cap iterations and sub-calls.</p>
+
+        <h2>Why does an RLM need a sandbox at all?</h2>
+
+        <p>Because the model writes code and the harness runs it. In the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a>, the prompt is stored as a variable in a Python REPL. The root model sees only metadata about it, then writes code to slice it, search it, and call <code>llm_query</code> on the pieces. Every turn the model emits a code block, and the environment executes it. That is arbitrary code execution by design.</p>
+
+        <p>The paper itself says little about isolation. Its implementation section describes "a Python REPL environment, which loads a module for querying a sub-LM." The limitations section names "sandboxed REPLs" as future work, next to asynchronous sub-calls, as a way to cut runtime and cost. Security is left to whoever deploys the scaffold. Our <a href="rlm-vs-coding-agent-with-repl.html">RLM vs coding agent</a> post notes that both need a sandbox for the same reason. This post is about how to build one.</p>
+
+        <h2>Where does the hostile code come from?</h2>
+
+        <p>Usually not from the model on its own. It comes from the input. The whole point of an RLM is to process inputs too large to read: a corpus of 1,000 documents, a scraped website, a repository, a mailbox. The root model reads slices of that input through printed output, and sub-calls read larger slices and return text. Any instruction hidden in a document can reach the model that writes the next code block.</p>
+
+        <p>This is indirect prompt injection. <a href="https://arxiv.org/abs/2302.12173">Greshake et al.</a> showed that attackers can inject prompts "into data likely to be retrieved" and that "processing retrieved prompts can act as arbitrary code execution." An RLM makes that last phrase literal. A document that says "before answering, run this snippet" is one obedient turn away from executing on your machine.</p>
+
+        <p>The reference library says the same thing in plainer words. Its README describes non-isolated environments as "pretty reasonable for some local low-risk tasks, like simple benchmarking, but can be problematic if the prompts or tool calls can interact with malicious users." In an RLM, the prompt is the document set. If you did not write every document, treat the prompt as untrusted.</p>
+
+        <h2>What does the default local REPL actually block?</h2>
+
+        <p>Less than its name suggests. The docstring in <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py"><code>local_repl.py</code></a> says it "executes code in a sandboxed namespace with access to context data." The namespace is a custom builtins dictionary, <code>_SAFE_BUILTINS</code>. It sets <code>input</code>, <code>eval</code>, <code>exec</code>, <code>compile</code>, <code>globals</code>, and <code>locals</code> to <code>None</code>. It keeps <code>__import__</code> and <code>open</code>.</p>
+
+        <p>That means model code can still run <code>import os</code>, <code>import subprocess</code>, or <code>import socket</code>. It can read your environment variables and API keys. It can open files anywhere your user can, and it can make network calls. The code runs through <code>exec(code, combined, combined)</code> in the same process as the RLM, so it also shares memory with the client that holds your provider credentials. A restricted builtins dictionary stops accidents, not attackers.</p>
+
+        <p>The working directory is not isolated either. The environment creates a temp directory and switches into it with <code>os.chdir</code>. That call changes the directory for the whole process. An open issue, <a href="https://github.com/alexzhang13/rlm/issues/180">#180</a>, reports that concurrent RLM instances race on it and cross-contaminate each other's working directory. The README is candid: the local REPL "is generally safe, but should not be used for production settings." Take the second half of that sentence seriously.</p>
+
+        <h2>What do the isolated options give you?</h2>
+
+        <p>The library lists seven environments. <code>local</code>, <code>ipython</code>, and <code>docker</code> run on your machine. <code>modal</code>, <code>prime</code>, <code>daytona</code>, and <code>e2b</code> run in cloud sandboxes, which the README says ensure "complete isolation from the host process." In the isolated setups, the README says a recursive sub-call "is requested from the host process," so the sandbox does not need your model API keys.</p>
+
+        <ul>
+            <li><strong>Docker.</strong> <code>DockerREPL</code> runs code in a <code>python:3.11-slim</code> container with <code>--rm</code>, a mounted temp directory, and a host alias so <code>llm_query</code> can reach an HTTP proxy on the host. The start command sets no network flag. <a href="https://docs.docker.com/engine/network/">Docker's documentation</a> says containers "have networking enabled by default, and they can make outgoing connections." So a stock container can still send data out. If the task needs no internet, add <code>--network none</code> and give the proxy another path, such as a mounted Unix socket.</li>
+            <li><strong>Cloud sandboxes.</strong> Modal, Prime, Daytona, and E2B move execution off your hardware. The <a href="https://www.daytona.io/docs/en/guides/rlm/recursive-language-models/">Daytona RLM guide</a> gives each agent "its own isolated Daytona sandbox," exposes <code>max_sandboxes</code> as a budget, and deletes sub-agent sandboxes "immediately after completion." Prime Intellect's <a href="https://www.primeintellect.ai/blog/rlm">RLM environment</a> runs code in isolated sandboxes and makes extra tools usable "only by the sub-LLMs," which keeps tool output out of the root context.</li>
+            <li><strong>WASM.</strong> <a href="https://dspy.ai/api/modules/RLM/">DSPy's RLM module</a> runs code in a Deno and Pyodide runtime. Its docs state that "the model's code is untrusted, so it runs in a sandbox" with "no filesystem or network access" by default. You grant access by allowlist: <code>enable_read_paths</code>, <code>enable_write_paths</code>, <code>enable_env_vars</code>, and <code>enable_network_access</code> with specific domains.</li>
+        </ul>
+
+        <h2>What should a production sandbox policy include?</h2>
+
+        <p>Start from what an RLM actually needs, which is very little. The root model needs the context variable, a Python standard library, and a way to call <code>llm_query</code>. It rarely needs the internet, your filesystem, or your credentials. Build the policy from that list:</p>
+
+        <ol>
+            <li><strong>Separate processes.</strong> Model code never runs in the process that holds API keys. Sub-calls cross the boundary as requests, and the host decides whether to serve them.</li>
+            <li><strong>No network by default.</strong> Block all egress. If a task needs fetching, give it a narrow domain allowlist, as DSPy does, rather than open access.</li>
+            <li><strong>Read-only context.</strong> Mount the input read-only and give the code a scratch directory it can write to. Nothing else on disk should be visible.</li>
+            <li><strong>Hard budgets.</strong> Cap REPL turns, sub-calls, wall-clock time, memory, and output size. DSPy defaults to <code>max_iters</code> of 20, <code>max_llm_calls</code> of 50, and 10,000 characters of REPL output per turn. A prompt-injected loop that calls <code>llm_query</code> ten thousand times is a billing attack even without a shell.</li>
+            <li><strong>One sandbox per run.</strong> Create a fresh environment per request and destroy it after. DSPy creates one interpreter per <code>forward()</code> call and shuts it down afterward. Do not let one user's context persist into another user's run.</li>
+            <li><strong>Log the code.</strong> Keep every executed block with the trajectory. When a run goes wrong, the code is the evidence, and our <a href="rlm-limitations-failure-modes.html">limitations post</a> covers how often trajectories go wrong for ordinary reasons.</li>
+        </ol>
+
+        <p>Isolation has a latency cost. A cloud sandbox adds a network round trip for each REPL turn and each proxied sub-call, and RLMs already make many sequential calls. Our post on <a href="are-rlms-slower-than-a-single-long-context-call.html">RLM latency</a> covers where that time goes. Batched sub-calls (<code>llm_query_batched</code>) reduce the round trips, and they matter more once every call crosses a process boundary.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>An RLM executes code written by a model that has just read your input. That input may contain instructions from strangers. The reference library's default <code>local</code> environment keeps imports and file access, runs in your process, and says it is not for production. Use it for benchmarks on data you trust. For anything else, run the REPL in a container with networking turned off, a cloud sandbox, or DSPy's WASM interpreter. Keep credentials on the host, mount the context read-only, and cap turns and sub-calls. The sandbox is not optional plumbing. It is the part of the RLM that makes reading untrusted input safe.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025. The REPL design with the prompt as a variable, and sandboxed REPLs listed as future work in Section 6. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L., et al. "rlm: General plug-and-play inference library for Recursive Language Models." GitHub README, accessed September 2026. The seven REPL environments, the non-isolated vs isolated warning, and the statement that the local REPL is not for production. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>alexzhang13/rlm. "local_repl.py." GitHub source, accessed September 2026. The _SAFE_BUILTINS dictionary, exec in the host process, and the os.chdir temp directory. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py">github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py</a></li>
+            <li>alexzhang13/rlm. "Issue #180: LocalREPL._temp_cwd: process-wide os.chdir races across concurrent RLM instances." GitHub, August 2026. Working-directory cross-contamination between concurrent runs. <a href="https://github.com/alexzhang13/rlm/issues/180">github.com/alexzhang13/rlm/issues/180</a></li>
+            <li>Greshake, K., Abdelnabi, S., Mishra, S., Endres, C., Holz, T., Fritz, M. "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection." arXiv:2302.12173, February 2023. Injected prompts in retrieved data acting as arbitrary code execution. <a href="https://arxiv.org/abs/2302.12173">arxiv.org/abs/2302.12173</a></li>
+            <li>DSPy. "RLM." API documentation, accessed September 2026. The Deno and Pyodide WASM sandbox, no filesystem or network access by default, access allowlists, and the max_iters, max_llm_calls, and output limits. <a href="https://dspy.ai/api/modules/RLM/">dspy.ai/api/modules/RLM</a></li>
+            <li>DSPy. "RLM: exploring large contexts with code." Documentation, accessed September 2026. Model code treated as untrusted, and one interpreter per forward() call. <a href="https://dspy.ai/diving-deeper/rlm/">dspy.ai/diving-deeper/rlm</a></li>
+            <li>Docker. "Networking overview." Docker Engine documentation, accessed September 2026. Containers make outgoing connections by default; the none driver isolates them. <a href="https://docs.docker.com/engine/network/">docs.docker.com/engine/network</a></li>
+            <li>Daytona. "Build deep Recursive Language Models." Documentation guide, accessed September 2026. One isolated sandbox per agent, the max_sandboxes budget, and deletion of sub-agent sandboxes after completion. <a href="https://www.daytona.io/docs/en/guides/rlm/recursive-language-models/">www.daytona.io/docs/en/guides/rlm/recursive-language-models</a></li>
+            <li>Mueller, S. "Recursive Language Models: the paradigm of 2026." Prime Intellect blog, January 2026. Code execution in isolated sandboxes and tools restricted to sub-LLMs. <a href="https://www.primeintellect.ai/blog/rlm">www.primeintellect.ai/blog/rlm</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is the rlm library&#x27;s local REPL safe for untrusted documents?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. It removes eval, exec, compile, input, globals, and locals from builtins, but it keeps __import__ and open, so model code can import os or subprocess. It runs with exec inside the same process as the RLM. The README says it should not be used for production settings.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does running the REPL in Docker stop data from leaving the machine?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not by default. The DockerREPL start command sets no network flag, and Docker containers can make outgoing connections unless you use the none network driver. Add --network none and route llm_query through a channel that does not need open networking.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can prompt injection in the input make an RLM run malicious code?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, in principle. The root model reads slices of the input and then writes the next code block, so instructions hidden in a document can steer that code. This is the indirect prompt injection pattern that Greshake et al. described in 2023. The sandbox limits the damage when the model obeys.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why do sub-calls go back to the host instead of running inside the sandbox?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">So the sandbox does not need your model API keys. In the isolated environments of the reference library, a recursive sub-call is requested from the host process. The host can then enforce budgets and reject calls it does not want to serve.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What limits should an RLM sandbox enforce?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Cap REPL turns, sub-calls, wall-clock time, memory, and output size. DSPy&#x27;s RLM module defaults to 20 iterations and 50 LLM calls per run. These caps stop a runaway or injected loop from turning into a large bill.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
