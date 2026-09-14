@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Does Prompt Caching Cut the Cost of RLM Sub-Calls? | rlm.md</title>
+    <meta name="description" content="Partly. Prompt caching bills repeated prefixes at about 0.1x, which suits the RLM root loop. Sub-calls with unique chunks save only with a long shared prefix.">
+    <meta name="keywords" content="RLM prompt caching, recursive language model cost, prefix caching, sub-call cost, Anthropic cache_control, OpenAI prompt caching, Gemini implicit caching, vLLM automatic prefix caching, SGLang RadixAttention, llm_query">
+    <link rel="canonical" href="https://rlm.md/blog/does-prompt-caching-cut-rlm-sub-call-costs.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/does-prompt-caching-cut-rlm-sub-call-costs.html">
+    <meta property="og:title" content="Does Prompt Caching Cut the Cost of RLM Sub-Calls?">
+    <meta property="og:description" content="Provider prompt caching rewards identical prefixes. The RLM root loop has one; most sub-calls do not. Here is how the Anthropic, OpenAI, Gemini, vLLM, and SGLang caches work and how to structure sub-calls to hit them.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Does Prompt Caching Cut the Cost of RLM Sub-Calls?">
+    <meta name="twitter:description" content="Prompt caching helps the RLM root loop far more than its sub-calls, unless you put a long shared prefix first.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM prompt caching, recursive language model cost, prefix caching, sub-call cost, Anthropic cache_control, OpenAI prompt caching, Gemini implicit caching, vLLM automatic prefix caching, SGLang RadixAttention, llm_query">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/does-prompt-caching-cut-rlm-sub-call-costs.html#article",
+      "headline": "Does Prompt Caching Cut the Cost of RLM Sub-Calls?",
+      "description": "Partly. Prompt caching bills repeated prefixes at about 0.1x, which suits the RLM root loop. Sub-calls with unique chunks save only with a long shared prefix.",
+      "url": "https://rlm.md/blog/does-prompt-caching-cut-rlm-sub-call-costs.html",
+      "datePublished": "2026-09-13",
+      "dateModified": "2026-09-13",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/does-prompt-caching-cut-rlm-sub-call-costs.html#article"
+      },
+      "wordCount": "1425"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does the RLM paper use prompt caching?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No mention of it appears in the paper. It reports that all LM calls were blocking and sequential, and it gives uncached API costs. The reproduction study does not mention caching either."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do most RLM sub-calls miss the cache?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Each sub-call usually sends a short instruction followed by a unique chunk. The shared part is shorter than the provider minimum, which ranges from 512 to 4,096 tokens, so nothing is written. The chunk differs every time, so it cannot match."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is caching worth it if a prefix is only used once?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. On Anthropic a 5-minute cache write costs 1.25x the base input price, so a single use costs more than no caching. Two uses at 1.25x plus 0.1x already cost less than two uncached calls."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the rlm library turn on prompt caching?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The client code we read sets no cache_control, so Anthropic requests are not cached unless you add it. OpenAI and Gemini 2.5 and newer cache matching prefixes automatically. Check the usage fields to confirm hits."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does vLLM prefix caching make RLM sub-calls generate faster?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It speeds up the prefill phase only. The vLLM docs state that it does not reduce the time spent generating new tokens. Sub-calls with long outputs see smaller gains."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Does Prompt Caching Cut the Cost of RLM Sub-Calls?</h1>
+        <p class="lead">Prompt caching bills repeated prefixes at a fraction of the input price. Here is which parts of an RLM run have a stable prefix, and how to shape sub-calls so they hit the cache.</p>
+    </div>
+
+    <div class="blog-meta">September 13, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> partly. Provider prompt caching bills repeated prefix tokens at about a tenth of the normal input rate, but only when the start of the prompt matches a recent request exactly. The root loop of an RLM fits that shape well, because each turn resends the whole earlier trajectory. Sub-calls mostly do not, because each one carries a different chunk, so caching saves money on them only when you put a long shared prefix first on purpose.</p>
+
+        <h2>How does provider prompt caching work?</h2>
+
+        <p>All three major APIs cache a <em>prefix</em>. The provider stores the processed state of the first part of a prompt. A later request that starts with the same tokens reuses it and pays a reduced rate for those tokens. A single changed token early in the prompt breaks the match for everything after it.</p>
+
+        <ul>
+            <li><strong>Anthropic.</strong> The <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching docs</a> give the prefix order as <code>tools</code>, then <code>system</code>, then <code>messages</code>. You mark up to 4 breakpoints with <code>cache_control</code>, or set one top-level <code>cache_control</code> for automatic caching, which moves the breakpoint forward as a conversation grows. Cache writes cost 1.25x the base input price for the default 5-minute TTL and 2x for the 1-hour TTL. Cache reads cost 0.1x. The minimum cacheable length ranges from 512 to 4,096 tokens depending on the model, and a shorter prompt is simply not cached, with no error.</li>
+            <li><strong>OpenAI.</strong> The <a href="https://developers.openai.com/api/docs/guides/prompt-caching">OpenAI guide</a> says caching "is enabled by default for supported OpenAI models" and that "cache reuse requires the entire rendered prefix to match." For GPT-5.6 and later, the minimum is 1,024 tokens, cached tokens cost 0.1x the uncached rate, and cache writes cost 1.25x. In-memory retention lasts "around 5 to 10 minutes of inactivity, up to one hour," and extended retention can keep entries for up to 24 hours.</li>
+            <li><strong>Google.</strong> The <a href="https://ai.google.dev/gemini-api/docs/caching">Gemini caching docs</a> say implicit caching "is enabled by default for all Gemini 2.5 and newer models," with minimums of 2,048 tokens for Gemini 2.5 Flash and Pro and 4,096 for newer models. Explicit caches default to a 1-hour TTL and bill storage by the hour. The <a href="https://ai.google.dev/gemini-api/docs/pricing">pricing page</a> lists Gemini 2.5 Pro input at $1.25 per million tokens and cached input at $0.125, plus $4.50 per million tokens per hour of storage.</li>
+        </ul>
+
+        <p>The common rules are simple. Stable content goes first. The prefix must pass a minimum length. The entry expires after minutes of idle time unless you pay for longer retention.</p>
+
+        <h2>What does the RLM paper say about cost and caching?</h2>
+
+        <p>It reports cost, not caching. The <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> finds that "the median RLM run is cheaper than the median base model run, but more expensive on average due to outlier trajectories." On BrowseComp-Plus with 1,000 documents, RLM(GPT-5) averaged $0.99 per query, against a linearly extrapolated $1.50 to $2.75 for GPT-5-mini reading 6 to 11 million input tokens. The authors state that "all LM calls are blocking / sequential" and list "exploding sub-call costs" as future work.</p>
+
+        <p>We searched the full text of the paper for any mention of prompt, prefix, or KV caching and found none. The <a href="https://arxiv.org/abs/2603.02615">reproduction study</a> reports that API costs grow by orders of magnitude once the RLM harness is used, and it does not mention caching either. So published RLM cost figures are almost certainly uncached figures. Our post on <a href="are-rlms-slower-than-a-single-long-context-call.html">RLM latency and cost</a> covers those numbers. This post covers what caching could change.</p>
+
+        <h2>Which parts of an RLM call are a stable prefix?</h2>
+
+        <p>The root loop is the best case. In the reference <a href="https://github.com/alexzhang13/rlm">rlm library</a>, <code>_setup_prompt</code> builds a system message with the REPL instructions, followed by a user message that states the context type and total length. Each turn then appends to the same list. A code comment calls it a "fully prefixed trajectory," a continuous <code>[system, metadata, user_0, assistant_0, repl_0, user_1, ...]</code> chain. Turn 12 therefore resends turns 1 through 11 unchanged, and the prefix grows every turn. That is the multi-turn chat shape that every provider cache is built for.</p>
+
+        <p>Two things break it. The metadata message includes the character count of the context, so the prefix differs between tasks, although it stays stable within one run. Compaction also rewrites history: the library keeps the first two messages and replaces the rest with a summary, so the next turn misses the cache after that point. Our <a href="rlm-vs-context-compaction-long-sessions.html">compaction comparison</a> covers why RLMs compact at all.</p>
+
+        <p>Sub-calls are the hard case. In the library, <code>llm_query</code> sends one prompt string, and the Anthropic client wraps a plain string as a single user message with no system prompt. When the root model writes something like <code>llm_query(f"Find mentions of X in: {chunk}")</code>, the only shared prefix is the short instruction. It is almost always below the 512 to 4,096 token minimums, so no entry is written, and each chunk pays full price. The chunks themselves never repeat, because splitting the input into distinct pieces is the whole point of the <a href="decompose-recurse-aggregate-pattern.html">decompose, recurse, aggregate pattern</a>.</p>
+
+        <h2>How should you structure sub-call prompts to hit the cache?</h2>
+
+        <ol>
+            <li><strong>Put the shared part first and make it worth caching.</strong> If every sub-call needs the same long rubric, schema, glossary, or set of worked examples, put it at the top of the prompt, above the provider minimum, and put the chunk last. The first call writes the entry, and the rest read it.</li>
+            <li><strong>Invert the order when one chunk gets many questions.</strong> If the root asks several questions about the same large section, put that section first and the question last.</li>
+            <li><strong>Keep the prefix byte-identical.</strong> No timestamps, turn counters, or chunk indices in the shared part. OpenAI says to place dynamic content "at the end rather than the beginning," and Google gives the same advice.</li>
+            <li><strong>Write the entry before you fan out.</strong> A request can only read an entry that an earlier request wrote. Send one sub-call first, then send the batch through <code>llm_query_batched</code> while the TTL is still live.</li>
+            <li><strong>Mark breakpoints on Anthropic.</strong> The rlm library client code we read sets no <code>cache_control</code>, so nothing is cached on Anthropic until you add it. OpenAI and Gemini implicit caching need no code change.</li>
+            <li><strong>Check the usage fields.</strong> Read <code>cache_read_input_tokens</code> on Anthropic or <code>cached_tokens</code> on OpenAI. A zero there means the prefix is too short or it changed.</li>
+        </ol>
+
+        <p>The write premium sets the break-even point. With Anthropic multipliers, a prefix written at 1.25x and read once at 0.1x costs 1.35x, against 2x uncached, so two uses already save money. A 1-hour write at 2x needs a third use to beat the uncached price. A prefix used once is a small loss.</p>
+
+        <h2>What about local inference?</h2>
+
+        <p>Self-hosted engines do the same thing without a price list. vLLM <a href="https://docs.vllm.ai/en/stable/features/automatic_prefix_caching/">automatic prefix caching</a> "caches the KV cache of existing queries, so that a new query can directly reuse the KV cache if it shares the same prefix." Its <a href="https://docs.vllm.ai/en/stable/design/prefix_caching/">design notes</a> say it hashes each KV block "by the tokens in the block and the tokens in the prefix before the block," caches only full blocks, and evicts the least recently used block first. It is set with <code>enable_prefix_caching</code>. The docs add that it "only reduces the time of processing the queries (the prefilling phase) and does not reduce the time of generating new tokens."</p>
+
+        <p>SGLang goes further. Its <a href="https://arxiv.org/abs/2312.07104">paper</a> describes RadixAttention, which keeps prompts and generation results "in a radix tree, enabling efficient prefix search, reuse, insertion, and eviction," with a cache-aware scheduler that orders requests by matched prefix length. The authors report up to 6.4x higher throughput than other inference systems of the time. For an RLM on local hardware, the gain shows up as GPU time instead of a smaller invoice, and the same rule applies: shared tokens first.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>Prompt caching does cut RLM cost, but mostly in the root loop, where each turn resends a growing and unchanged trajectory. Sub-calls save money only when they share a long prefix that passes the provider minimum, which the typical short instruction plus chunk does not. If you want cached sub-calls, put a real shared prefix first and the chunk last, keep that prefix identical, warm it before the batch, and read the usage fields. Published RLM cost figures, including the paper's, do not use caching, so treat them as a ceiling, not a floor.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025. Median vs average cost, the $0.99 BrowseComp-Plus figure, blocking sequential calls, and no mention of caching. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Cost growth under the RLM harness, with no caching discussed. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Anthropic. "Prompt caching." Claude Developer Platform documentation, accessed September 2026. Prefix order, breakpoints, automatic caching, write and read multipliers, TTLs, minimum lengths, and usage fields. <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">platform.claude.com/docs/en/build-with-claude/prompt-caching</a></li>
+            <li>OpenAI. "Prompt caching." API documentation, accessed September 2026. Default-on caching, exact prefix match, 1,024-token minimum, 0.1x cached rate, 1.25x writes, and retention windows. <a href="https://developers.openai.com/api/docs/guides/prompt-caching">developers.openai.com/api/docs/guides/prompt-caching</a></li>
+            <li>Google. "Context caching." Gemini API documentation, accessed September 2026. Implicit caching on Gemini 2.5 and newer, minimum token counts, and prompt ordering advice. <a href="https://ai.google.dev/gemini-api/docs/caching">ai.google.dev/gemini-api/docs/caching</a></li>
+            <li>Google. "Context caching" (generateContent). Gemini API documentation, accessed September 2026. The 1-hour default TTL and storage billing for explicit caches. <a href="https://ai.google.dev/gemini-api/docs/generate-content/caching">ai.google.dev/gemini-api/docs/generate-content/caching</a></li>
+            <li>Google. "Gemini Developer API pricing." Accessed September 2026. Gemini 2.5 Pro input, cached input, and storage prices. <a href="https://ai.google.dev/gemini-api/docs/pricing">ai.google.dev/gemini-api/docs/pricing</a></li>
+            <li>vLLM. "Automatic Prefix Caching." Documentation, accessed September 2026. KV reuse for shared prefixes and the prefill-only limitation. <a href="https://docs.vllm.ai/en/stable/features/automatic_prefix_caching/">docs.vllm.ai/en/stable/features/automatic_prefix_caching</a></li>
+            <li>vLLM. "Automatic Prefix Caching" design document. Accessed September 2026. Block hashing, full-block caching, and LRU eviction. <a href="https://docs.vllm.ai/en/stable/design/prefix_caching/">docs.vllm.ai/en/stable/design/prefix_caching</a></li>
+            <li>Zheng, L., et al. "SGLang: Efficient Execution of Structured Language Model Programs." arXiv:2312.07104, December 2023. RadixAttention, LRU leaf eviction, cache-aware scheduling, and up to 6.4x throughput. <a href="https://arxiv.org/abs/2312.07104">arxiv.org/abs/2312.07104</a></li>
+            <li>Zhang, A. L., et al. "rlm." GitHub repository, accessed September 2026. The append-only root message history, the metadata message, compaction, and the llm_query client path. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the RLM paper use prompt caching?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No mention of it appears in the paper. It reports that all LM calls were blocking and sequential, and it gives uncached API costs. The reproduction study does not mention caching either.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why do most RLM sub-calls miss the cache?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Each sub-call usually sends a short instruction followed by a unique chunk. The shared part is shorter than the provider minimum, which ranges from 512 to 4,096 tokens, so nothing is written. The chunk differs every time, so it cannot match.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is caching worth it if a prefix is only used once?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. On Anthropic a 5-minute cache write costs 1.25x the base input price, so a single use costs more than no caching. Two uses at 1.25x plus 0.1x already cost less than two uncached calls.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the rlm library turn on prompt caching?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The client code we read sets no cache_control, so Anthropic requests are not cached unless you add it. OpenAI and Gemini 2.5 and newer cache matching prefixes automatically. Check the usage fields to confirm hits.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does vLLM prefix caching make RLM sub-calls generate faster?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It speeds up the prefill phase only. The vLLM docs state that it does not reduce the time spent generating new tokens. Sub-calls with long outputs see smaller gains.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
