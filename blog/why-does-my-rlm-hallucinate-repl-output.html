@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Does My RLM Hallucinate REPL Output Instead of Running the Code? | rlm.md</title>
+    <meta name="description" content="RLM root models invent REPL output when nothing stops them at the code fence. What the official rlm repo found, and how stop sequences and tool calls fix it.">
+    <meta name="keywords" content="RLM hallucinated REPL output, recursive language model, fabricated stdout, FINAL answer, stop sequences, tool calling, alexzhang13 rlm, Claude 4.6, answer dict, turn boundary">
+    <link rel="canonical" href="https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html">
+    <meta property="og:title" content="Why Does My RLM Hallucinate REPL Output Instead of Running the Code?">
+    <meta property="og:description" content="Some root models write fake execution results and a final answer in the same turn. Here is what the official RLM repo reported and the mechanical fixes that work.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Why Does My RLM Hallucinate REPL Output Instead of Running the Code?">
+    <meta name="twitter:description" content="Why RLM root models fabricate REPL output, what the paper and repo say, and how to stop it.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM hallucinated REPL output, recursive language model, fabricated stdout, FINAL answer, stop sequences, tool calling, alexzhang13 rlm, Claude 4.6, answer dict, turn boundary">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html#article",
+      "headline": "Why Does My RLM Hallucinate REPL Output Instead of Running the Code?",
+      "description": "RLM root models invent REPL output when nothing stops them at the code fence. What the official rlm repo found, and how stop sequences and tool calls fix it.",
+      "url": "https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html",
+      "datePublished": "2026-09-17",
+      "dateModified": "2026-09-17",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html#article"
+      },
+      "wordCount": "1307"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is this the same as the model hallucinating facts from memory?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Parametric hallucination is when a model answers from its training data instead of the input, which the reproduction study saw at depth 2. Fabricated REPL output is a turn-boundary failure: the model writes what it expects the code to print. The fixes differ, because the second one is solved by stopping generation at the right place."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which models are known to do this?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The public report in the official rlm repo names Claude 4.6 Sonnet and Opus. A separate issue describes a similar pattern with gpt-oss-120b on a large corpus, mixed with context pruning. The maintainer called the problem model dependent, so test any root model you plan to use."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Will a stronger system prompt fix it?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not reliably. The old reference prompt already told models not to use FINAL tags until the task was complete, and the Claude 4.6 behavior still appeared. The repo fixed it by changing how a run ends, not by adding more instructions."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does upgrading the rlm library solve the problem?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It removes the worst case. Since PR #162, text FINAL answers are ignored and only answer ready set in real code ends a run. The fabricated text can still enter the message history, so a stop sequence or client-side truncation is still worth adding."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use stop sequences with reasoning models?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It depends on the provider and model. The OpenAI Chat Completions reference says the stop parameter is not supported on o3 and o4-mini. In that case, truncate after the closing fence on the client or use native tool calling."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Why Does My RLM Hallucinate REPL Output Instead of Running the Code?</h1>
+        <p class="lead">The root model writes a code block, then keeps going: it invents the output and commits to an answer before the REPL runs. Here is why that happens and how to stop it.</p>
+    </div>
+
+    <div class="blog-meta">September 17, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> the model does not stop at the end of its code block. Nothing in a plain chat turn forces it to, so it keeps predicting tokens, writes what it expects the output to be, and sometimes commits to an answer in the same turn. The official RLM repo hit exactly this with Claude 4.6 models in <a href="https://github.com/alexzhang13/rlm/pull/127">PR #127</a>. The fixes are mechanical: end the answer only from REPL state, stop or truncate generation at the closing fence, or run code through native tool calling.</p>
+
+        <h2>What does the failure look like?</h2>
+
+        <p>The clearest public report is <a href="https://github.com/alexzhang13/rlm/pull/127">PR #127</a> in the alexzhang13/rlm repository, opened in February 2026. It says Claude 4.6 Sonnet and Opus, "instead of generating a code block and stopping to wait for execution feedback," continued past the block, invented the execution output, reasoned over it, and wrote a <code>FINAL()</code> answer, all in one turn.</p>
+
+        <p>The example in the PR is a customer spending question. The model wrote a correct <code>print(context)</code> block. It then wrote made-up rows such as "Alice: $1200, Bob: $450, Kevin: $5200," none of which were in the data, and returned a ranked top 10 built on them. The harness did run the real code. But the parser found <code>FINAL()</code> in the same response and exited the loop, so the real output never reached the model.</p>
+
+        <p>A second report, <a href="https://github.com/alexzhang13/rlm/issues/157">issue #157</a>, describes what its author calls the gpt-oss-120b analog. On a 25-file corpus of 126,349 input tokens, the run returned a summary of searches as its final result, and a downstream reviewer model turned that into a false AES-CBC finding on a file that uses AES-GCM. That issue also involves context pruning, so it is a mixed case, not a clean copy of #127.</p>
+
+        <h2>Does the RLM paper or its reproduction discuss this?</h2>
+
+        <p>Not directly. We searched the full text of the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> (v3, May 2026) and found no discussion of fabricated REPL output. The closest passage is in Appendix B, the negative results. It says "distinguishing between a final answer and a thought is brittle for RLMs," that the answer was marked with <code>FINAL()</code> or <code>FINAL_VAR()</code> tags, and that a model sometimes "outputs its plan as a final answer." The authors say they "added minor safeguards" and do not describe them.</p>
+
+        <p>Appendix A adds a related number. In the Qwen3-Coder trajectories used to train RLM-Qwen3-8B, "16% of turns incorrectly used FINAL answers, and 13% of turns incorrectly called a variable from the REPL (i.e. FINAL_VAR) as a final answer," so the authors added a programmatic step to patch common template mistakes. That is answer-format misuse, not invented stdout.</p>
+
+        <p>The <a href="https://arxiv.org/abs/2603.02615">reproduction study</a> by Daren Wang reports hallucination of a different kind. At depth 2, DeepSeek v3.2 answered a needle task with real nuclear magic numbers (2, 8, 20, 28, 50, 82, 126) instead of the planted value, which the author calls parametric hallucination. It also reports Kimi K2 runs where every RLM sample failed to parse because <code>&lt;thinking&gt;</code> tags wrapped the output. Neither is the root model writing fake execution results. Our post on <a href="rlm-limitations-failure-modes.html">RLM limitations and failure modes</a> covers those broader problems.</p>
+
+        <h2>Why does the model keep writing after the code fence?</h2>
+
+        <p>Because a chat model ends its turn when it decides it is done, not when a code block closes. The Anthropic <a href="https://platform.claude.com/docs/en/api/messages">Messages API reference</a> says models "normally stop when they have naturally completed their turn," with a <code>stop_reason</code> of <code>end_turn</code>. In an RLM loop, a closed <code>```repl</code> fence is just more text. If the model predicts that output usually follows code, it writes the output.</p>
+
+        <p>The reference harness did not add a hard stop. Its <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/clients/openai.py">OpenAI client</a> sends the model, messages, and any sampling arguments you pass, and sets no stop sequence of its own. The parser in <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/parsing.py">parsing.py</a> pulls every block that matches <code>```repl\s*\n(.*?)\n```</code> out of the whole response and runs them all. Before May 2026 it also scanned the whole response text for <code>FINAL(...)</code>. Put together, a model that writes code, fake output, and <code>FINAL()</code> in one turn gets its fake answer accepted.</p>
+
+        <p>The maintainer did not treat it as a single-model bug. Replying on <a href="https://github.com/alexzhang13/rlm/pull/127">PR #127</a>, Alex Zhang called it "a weird problem that's quite model dependent" and said he wanted "less hacky solutions." That matches the paper's point that one prompt does not transfer cleanly across models, which our post on <a href="what-base-model-do-you-need-for-an-rlm.html">choosing a base model</a> covers.</p>
+
+        <h2>What did the official repo change?</h2>
+
+        <p>PR #127 proposed ignoring text <code>FINAL()</code> whenever a response also held code blocks. It was not merged. Instead, <a href="https://github.com/alexzhang13/rlm/pull/162">PR #162</a>, merged on 13 May 2026, removed text-based <code>FINAL</code> parsing. The REPL now holds an <code>answer</code> dict with <code>"content"</code> and <code>"ready"</code> keys, and the run ends only when code sets <code>answer["ready"] = True</code> during a real execution. The PR says it follows DSPy.RLM and the verifiers RLMEnv.</p>
+
+        <p>A contributor then wrote regression tests for a repl block followed by a hallucinated trailing <code>FINAL(...)</code>, reported that they pass on main, and the PR author closed #127 as resolved by the dict change. The current <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py">system prompt</a> also says "execute one ```repl``` block every turn," and the first user turn warns: "Look at the context first; do not provide a final answer yet."</p>
+
+        <p>Two gaps remain, from our reading of the code rather than a filed bug. The assistant message, fake output included, is still appended to history before the real REPL output. And because every block in a response runs, a model could write invented numbers into <code>answer["content"]</code> in a second block of the same turn.</p>
+
+        <h2>How do you stop it in your own harness?</h2>
+
+        <ol>
+
+        <li><strong>End runs from REPL state, never from text.</strong> Copy the <code>answer["ready"]</code> pattern. Prose after a code block then cannot end the run.</li>
+
+        <li><strong>Set a stop sequence at the closing fence.</strong> A commenter on #127 suggested this. Anthropic returns <code>stop_reason: "stop_sequence"</code> and the matched string in <code>stop_sequence</code>, per the <a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons">stop reasons guide</a>. OpenAI Chat Completions accepts <a href="https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create">up to 4 stop sequences</a>, notes that "the returned text will not contain the stop sequence," and marks <code>stop</code> as not supported on o3 and o4-mini. If the fence is stripped, add it back, or the repo regex above will not match.</li>
+
+        <li><strong>Truncate on the client.</strong> Where a model rejects stop sequences, cut the response after the first closing fence before you run code or save history. The model then never sees its own fake output.</li>
+
+        <li><strong>Use native tool calling for execution.</strong> Expose code execution as a tool. Anthropic ends the turn with <code>stop_reason</code> <code>tool_use</code>, and the <a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons">guide</a> says to "run the tool and return the result." OpenAI reports <code>finish_reason</code> <code>tool_calls</code>. The provider enforces the turn boundary, not your regex.</li>
+
+        <li><strong>Allow one block per turn.</strong> Run the first block and drop the rest, so a second block cannot submit an answer built on invented output.</li>
+
+        <li><strong>Log trajectories and look for text after the fence.</strong> Anything that reads like output right after <code>```</code> in an assistant turn is a fabrication signal. Treat the REPL like any exec surface, as our <a href="how-to-sandbox-the-rlm-repl.html">sandboxing post</a> describes.</li>
+
+        </ol>
+
+        <h2>The bottom line</h2>
+
+        <p>Fabricated REPL output is a turn-boundary bug, not a reasoning bug. The model predicts the output because nothing stops it. The RLM paper does not document this case, and the reproduction reports other hallucinations. The official repo saw it with Claude 4.6 models and fixed the worst part by ending runs only from REPL state. Add a stop sequence or client truncation at the closing fence, or move execution into tool calls, and the model has to wait for real output.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3 May 2026). Appendix B brittle final-answer passage, Appendix A FINAL misuse rates (16% and 13%), Algorithm 1 termination on the Final variable; no discussion of fabricated REPL output. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth-2 parametric hallucination, formatting collapse, and Kimi K2 thinking-tag parse failures. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>alexzhang13/rlm. "Fix hallucinated FINAL() answers with Claude 4.6 models." GitHub PR #127, February 2026. Failure description, customer-data example, stop-token suggestion, maintainer reply, and closure as superseded. <a href="https://github.com/alexzhang13/rlm/pull/127">github.com/alexzhang13/rlm/pull/127</a></li>
+            <li>alexzhang13/rlm. "New dict-based Final Answer format." GitHub PR #162, merged May 13, 2026. The answer dict with content and ready keys that replaced text FINAL parsing. <a href="https://github.com/alexzhang13/rlm/pull/162">github.com/alexzhang13/rlm/pull/162</a></li>
+            <li>alexzhang13/rlm. "compress_corpus produces fabricated 'search summary' output instead of compressed code at >100K input tokens (gpt-oss-120b via Cerebras)." GitHub issue #157, May 2026. Second fabrication report and the downstream false AES-CBC finding. <a href="https://github.com/alexzhang13/rlm/issues/157">github.com/alexzhang13/rlm/issues/157</a></li>
+            <li>alexzhang13/rlm. "parsing.py." GitHub source, accessed September 2026. The repl code-block regex and format_iteration history handling. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/parsing.py">github.com/alexzhang13/rlm/blob/main/rlm/utils/parsing.py</a></li>
+            <li>alexzhang13/rlm. "prompts.py." GitHub source, accessed September 2026. One block per turn instruction and first-turn safeguard text. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py">github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py</a></li>
+            <li>alexzhang13/rlm. "clients/openai.py." GitHub source, accessed September 2026. Chat Completions call with no default stop sequence. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/clients/openai.py">github.com/alexzhang13/rlm/blob/main/rlm/clients/openai.py</a></li>
+            <li>Anthropic. "Messages API reference." Claude Platform docs, accessed September 2026. stop_sequences parameter and end_turn behavior. <a href="https://platform.claude.com/docs/en/api/messages">platform.claude.com/docs/en/api/messages</a></li>
+            <li>Anthropic. "Handling stop reasons." Claude Platform docs, accessed September 2026. stop_sequence and tool_use stop reasons. <a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons">platform.claude.com/docs/en/build-with-claude/handling-stop-reasons</a></li>
+            <li>OpenAI. "Create chat completion." API reference, accessed September 2026. stop parameter limits, stripped stop text, o3 and o4-mini exclusion, tool_calls finish reason. <a href="https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create">developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is this the same as the model hallucinating facts from memory?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Parametric hallucination is when a model answers from its training data instead of the input, which the reproduction study saw at depth 2. Fabricated REPL output is a turn-boundary failure: the model writes what it expects the code to print. The fixes differ, because the second one is solved by stopping generation at the right place.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Which models are known to do this?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The public report in the official rlm repo names Claude 4.6 Sonnet and Opus. A separate issue describes a similar pattern with gpt-oss-120b on a large corpus, mixed with context pruning. The maintainer called the problem model dependent, so test any root model you plan to use.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Will a stronger system prompt fix it?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not reliably. The old reference prompt already told models not to use FINAL tags until the task was complete, and the Claude 4.6 behavior still appeared. The repo fixed it by changing how a run ends, not by adding more instructions.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does upgrading the rlm library solve the problem?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It removes the worst case. Since PR #162, text FINAL answers are ignored and only answer ready set in real code ends a run. The fabricated text can still enter the message history, so a stop sequence or client-side truncation is still worth adding.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I use stop sequences with reasoning models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It depends on the provider and model. The OpenAI Chat Completions reference says the stop parameter is not supported on o3 and o4-mini. In that case, truncate after the closing fence on the client or use native tool calling.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
