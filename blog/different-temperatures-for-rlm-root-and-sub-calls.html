@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM? | rlm.md</title>
+    <meta name="description" content="Usually yes. The rlm library splits sampling_args and sub_sampling_args, but no paper ablates temperature and most frontier roots reject the parameter.">
+    <meta name="keywords" content="RLM temperature, recursive language model sampling, sampling_args, sub_sampling_args, root model temperature, sub-call temperature, self-consistency, reasoning model temperature, deterministic LLM inference, RLM reproducibility">
+    <link rel="canonical" href="https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html">
+    <meta property="og:title" content="Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM?">
+    <meta property="og:description" content="The reference RLM library exposes root and sub-call sampling settings separately. No published result tunes them, and reasoning-model roots reject temperature outright. Here is what the code, the papers, and the provider docs actually support.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM?">
+    <meta name="twitter:description" content="Split RLM temperature by what you do with the answer, not by recursion depth.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM temperature, recursive language model sampling, sampling_args, sub_sampling_args, root model temperature, sub-call temperature, self-consistency, reasoning model temperature, deterministic LLM inference, RLM reproducibility">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html#article",
+      "headline": "Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM?",
+      "description": "Usually yes. The rlm library splits sampling_args and sub_sampling_args, but no paper ablates temperature and most frontier roots reject the parameter.",
+      "url": "https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html",
+      "datePublished": "2026-09-20",
+      "dateModified": "2026-09-20",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html#article"
+      },
+      "wordCount": "1472"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What are sampling_args and sub_sampling_args in the rlm library?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "They are two constructor arguments on the RLM class that carry sampling settings such as temperature, top_p, max_tokens, and seed. The first applies to the root model at depth 0, the second to depth-1 sub-LLM calls. Both default to None, so an unconfigured run uses provider defaults on both sides."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my temperature setting seem to do nothing on Claude or Gemini?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The reference library only forwards sampling args through its OpenAI-compatible client. The Anthropic client builds its request from model, max_tokens, messages, and system, and the Gemini client only passes a system instruction. Anything else you set on those backends is dropped without an error."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does temperature 0 give the same output every time?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Thinking Machines Lab showed that hosted endpoints vary because server load changes the batch size, and standard kernels are not batch invariant. Their default setup produced 80 unique completions across 1,000 runs at the same settings. Batch-invariant kernels fixed it, but that is not something an API exposes."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is self-consistency voting worth adding to an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Only for sub-calls you sample several times over the same slice and then aggregate. Self-consistency works by comparing diverse reasoning paths for one question. The normal RLM fan-out asks a different question of each chunk, so there is nothing to compare and the extra samples only multiply cost."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What temperature did the original RLM evaluation use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The paper never states one. It says GPT-5 ran with medium reasoning and default sampling parameters, and that Qwen3-Coder ran with the sampling parameters from its model card, which are temperature 0.7, top_p 0.8, top_k 20, and repetition penalty 1.05. Neither is a root-versus-sub-call choice."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM?</h1>
+        <p class="lead">The reference implementation lets you set root and sub-call sampling separately. No published RLM result tells you what to put in them, so here is what the code and the provider docs do support.</p>
+    </div>
+
+    <div class="blog-meta">September 20, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> usually yes, but not for the reason most people assume. The reference RLM library already exposes the two settings separately, as <code>sampling_args</code> for the root and <code>sub_sampling_args</code> for depth-1 sub-calls, so the split is a supported knob and not a hack. No published RLM result ablates temperature, so any specific pair of numbers is untested folklore. On most frontier roots the question is moot anyway, because reasoning models reject a non-default temperature outright.</p>
+
+        <h2>Does the reference implementation let you set them separately?</h2>
+
+        <p>Yes. The <code>RLM</code> constructor in the <a href="https://github.com/alexzhang13/rlm">reference library</a> takes both <code>sampling_args</code> and <code>sub_sampling_args</code>. The code comment states the division plainly: <code>sampling_args</code> "applies to the root model (depth=0)" and <code>sub_sampling_args</code> to "depth=1 sub-LLM calls." If you pass <code>sub_sampling_args</code> without naming a second backend, the library mirrors the root backend so that depth 1 routes through its own client with its own sampling args.</p>
+
+        <p>Both default to <code>None</code>. Out of the box, the root and the sub-calls therefore inherit the same provider defaults, and there is no split at all. We searched the repository and found no temperature value set anywhere, including the training configs, which set <code>max_completion_tokens</code> and disable thinking but never touch temperature.</p>
+
+        <p>One trap matters more than the choice of number. Only the OpenAI-compatible client actually forwards these args: it unpacks them into the <code>chat.completions.create</code> call and renames <code>max_tokens</code> to <code>max_completion_tokens</code> on the way. The Anthropic client builds its request from model, <code>max_tokens</code>, messages, and system only, and never reads <code>sampling_args</code>. The Gemini client builds a config that carries a system instruction and nothing else. On those two backends, a temperature you set is dropped in silence. Confirm the value reaches the wire before you interpret any result.</p>
+
+        <h2>Do the RLM papers report a temperature ablation?</h2>
+
+        <p>No. We read the latest version of the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> and found no temperature, top-p, greedy decoding, or seed setting anywhere in the text. The methods section says only that GPT-5 ran "with medium reasoning and default sampling parameters," and that Qwen3-Coder-480B-A35B ran "using the sampling parameters described in" the Qwen release. Those published Qwen settings are <code>temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05</code>. That is a vendor default applied to every call the model makes, not a root-versus-leaf decision.</p>
+
+        <p>The <a href="https://arxiv.org/abs/2603.02615">reproduction study</a> by Daren Wang varies recursion depth, not sampling. It reports nothing about temperature either. So the honest position is that the root-versus-sub-call temperature question has no published answer. Anyone quoting you a tuned pair is reasoning from general practice, as we are about to.</p>
+
+        <h2>Can you even set a temperature on the models people use as roots?</h2>
+
+        <p>Often not, and this collapses most of the question. Microsoft's reasoning-model documentation for the Azure OpenAI models states that "reasoning models other than GPT-6 Astra don't support the following parameters: <code>temperature</code>, <code>top_p</code>, <code>presence_penalty</code>, <code>frequency_penalty</code>, <code>logprobs</code>, <code>top_logprobs</code>, <code>logit_bias</code>, <code>max_tokens</code>." The whole GPT-5 family sits in that group, and the paper's own root is GPT-5 at medium reasoning.</p>
+
+        <p>Anthropic's thinking documentation draws a similar line and is explicit about where it applies. On its newer models, "non-default <code>temperature</code>, <code>top_p</code>, or <code>top_k</code> values return a 400 error on every request, regardless of whether thinking is used." On older models the restriction applies only while thinking is on, where "<code>temperature</code> and <code>top_k</code> are incompatible with thinking, and <code>top_p</code> is allowed at values between 0.95 and 1."</p>
+
+        <p>So the split is genuinely available only when at least one side is an open-weights or non-reasoning model. If your root is a frontier reasoning model, the practical question is not "which two temperatures" but "the provider default at the root, and what at the leaf." That is also why the root and the leaf are usually different models to begin with, as our post on <a href="what-base-model-do-you-need-for-an-rlm.html">choosing an RLM base model</a> covers.</p>
+
+        <h2>Would a low root temperature make the REPL loop reproducible?</h2>
+
+        <p>No, and this is the most common bad reason for turning the root dial down. Hosted endpoints do not offer determinism at any temperature. Thinking Machines Lab traced the cause: "the primary reason nearly all LLM inference endpoints are nondeterministic is that the load (and thus batch-size) nondeterministically varies," and standard kernels are not batch invariant, so "when the batch size changes, each element in the batch can get different results." With batch-invariant kernels their 1,000 runs produced identical completions; the default implementation produced 80 unique ones. You cannot buy that property through an API.</p>
+
+        <p>The second reason is that a root model's run-to-run variance comes mostly from which decomposition it chooses, not from token-level jitter inside a chosen plan. Renze and Guven swept temperature from 0.0 to 1.6 across nine models and five prompting techniques and found that "changes in temperature from 0.0 to 1.0 do not have a statistically significant impact on LLM performance." That was multiple-choice problem solving, not REPL code, so do not over-read it. It does argue against expecting a large accuracy win from the root dial alone.</p>
+
+        <p>There is one real argument for keeping the root low. The root's output is a program, and a malformed cell wastes an entire turn. Work on code decoding splits code tokens into "challenging tokens that are difficult to predict and confident tokens that can be easily inferred," and lowers the temperature on the confident ones to avoid "the influence of tail randomness noises." Most of what an RLM root writes is the confident kind: slice a string, run a regex, loop over chunks, call <code>llm_query</code>. If your provider lets you set it, there is no upside to sampling that code hot. If you want stable evaluation numbers, get them from a fixed harness and repeated runs, which our guide to <a href="how-to-evaluate-a-recursive-language-model.html">evaluating an RLM</a> sets out.</p>
+
+        <h2>When does a higher sub-call temperature actually help?</h2>
+
+        <p>Only when you sample the same sub-call more than once and aggregate the answers. That is the self-consistency setup: Wang and colleagues "first sample a diverse set of reasoning paths instead of only taking the greedy one, and then select the most consistent answer by marginalizing out the sampled reasoning paths," reporting gains such as 17.9 points on GSM8K. Diversity is the whole mechanism, and it requires repeated samples of one question.</p>
+
+        <p>The default RLM fan-out is not that shape. Sub-calls go out over distinct chunks, so each one asks a different question and each answer is used exactly once. Diversity between those calls buys nothing, because nothing compares them. Raising temperature there only adds noise to extraction, and bad extractions are precisely what the root aggregates into a confidently wrong final answer. Our post on <a href="why-does-my-rlm-hallucinate-repl-output.html">RLM hallucination of REPL output</a> describes how that failure looks from the trajectory.</p>
+
+        <p>The rule that follows is simple: <strong>temperature should follow the aggregation, not the recursion depth.</strong> A sub-call whose result is used once belongs at the low end. A sub-call you issue several times over the same slice and then majority-vote belongs at a sampling temperature. Budget for it, because k samples cost k times as much, and sub-call cost is already the part of an RLM bill that blows out on the tail.</p>
+
+        <h2>What should you actually set?</h2>
+
+        <ol>
+            <li><strong>Check the value reaches the API.</strong> On the reference library, only the OpenAI-compatible client forwards sampling args. Log the outgoing request once and confirm.</li>
+            <li><strong>Leave the root at the provider default.</strong> With a reasoning model you have no choice. Without one, you have no evidence that moving it helps.</li>
+            <li><strong>Put single-shot extraction sub-calls at the low end.</strong> These calls read a bounded slice and answer a narrow question. Creativity is not the job.</li>
+            <li><strong>Raise temperature only where you vote.</strong> Repeated samples over the same slice, aggregated by majority, is the one pattern where diversity is paying for something.</li>
+            <li><strong>Do not shop for determinism.</strong> Report medians and spread over repeated runs instead.</li>
+            <li><strong>Log whatever you set.</strong> The papers do not, which is exactly why this question has no published answer yet.</li>
+        </ol>
+
+        <h2>The bottom line</h2>
+
+        <p>The reference implementation supports different temperatures at the root and in sub-calls, and for most workloads a split is reasonable: provider default at the root, low for single-use sub-calls. What no source supports is a tuned pair of numbers. The RLM paper and its reproduction never report a temperature at all, and the models most often used as roots reject the parameter, so the decision is really about the leaves. Set the leaf temperature by what you do with the answer. One use means low. A vote means diversity. Everything else is guesswork with a decimal point on it.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3, May 2026). No temperature or sampling ablation; GPT-5 run with medium reasoning and default sampling parameters. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth ablations with DeepSeek v3.2 and Kimi K2, and no temperature ablation. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Zhang, A. L., et al. "rlm." GitHub repository, accessed September 2026. The sampling_args and sub_sampling_args constructor arguments, their depth-0 and depth-1 scoping, and which clients forward them. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Microsoft. "Azure OpenAI reasoning models." Microsoft Learn, updated September 2026. The list of parameters reasoning models do not support, including temperature and top_p. <a href="https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning">learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning</a></li>
+            <li>Anthropic. "Thinking." Claude Developer Platform documentation, accessed September 2026. Non-default temperature, top_p, and top_k returning 400 on newer models, and the thinking-only restriction on older ones. <a href="https://platform.claude.com/docs/en/build-with-claude/thinking">platform.claude.com/docs/en/build-with-claude/thinking</a></li>
+            <li>Wang, X., Wei, J., Schuurmans, D., Le, Q., Chi, E., Narang, S., Chowdhery, A., Zhou, D. "Self-Consistency Improves Chain of Thought Reasoning in Language Models." arXiv:2203.11171, March 2022. Sampling diverse reasoning paths and marginalizing to the most consistent answer. <a href="https://arxiv.org/abs/2203.11171">arxiv.org/abs/2203.11171</a></li>
+            <li>Renze, M., Guven, E. "The Effect of Sampling Temperature on Problem Solving in Large Language Models." arXiv:2402.05201, February 2024. No statistically significant effect of temperature 0.0 to 1.0 on problem-solving accuracy. <a href="https://arxiv.org/abs/2402.05201">arxiv.org/abs/2402.05201</a></li>
+            <li>Zhu, Y., Li, J., Li, G., Zhao, Y., Li, J., Jin, Z., Mei, H. "Hot or Cold? Adaptive Temperature Sampling for Code Generation with Large Language Models." arXiv:2309.02772, September 2023. Challenging versus confident code tokens and tail randomness noise. <a href="https://arxiv.org/abs/2309.02772">arxiv.org/abs/2309.02772</a></li>
+            <li>He, H., Thinking Machines Lab. "Defeating Nondeterminism in LLM Inference." September 2025. Batch-size variation as the cause of nondeterminism, and the 1,000-run batch-invariance experiment. <a href="https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/">thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference</a></li>
+            <li>Qwen Team. "Qwen3-Coder-480B-A35B-Instruct" model card. Hugging Face, accessed September 2026. The recommended temperature 0.7, top_p 0.8, top_k 20, repetition penalty 1.05 settings referenced by the RLM paper. <a href="https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct">huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What are sampling_args and sub_sampling_args in the rlm library?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">They are two constructor arguments on the RLM class that carry sampling settings such as temperature, top_p, max_tokens, and seed. The first applies to the root model at depth 0, the second to depth-1 sub-LLM calls. Both default to None, so an unconfigured run uses provider defaults on both sides.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why does my temperature setting seem to do nothing on Claude or Gemini?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The reference library only forwards sampling args through its OpenAI-compatible client. The Anthropic client builds its request from model, max_tokens, messages, and system, and the Gemini client only passes a system instruction. Anything else you set on those backends is dropped without an error.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does temperature 0 give the same output every time?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Thinking Machines Lab showed that hosted endpoints vary because server load changes the batch size, and standard kernels are not batch invariant. Their default setup produced 80 unique completions across 1,000 runs at the same settings. Batch-invariant kernels fixed it, but that is not something an API exposes.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is self-consistency voting worth adding to an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Only for sub-calls you sample several times over the same slice and then aggregate. Self-consistency works by comparing diverse reasoning paths for one question. The normal RLM fan-out asks a different question of each chunk, so there is nothing to compare and the extra samples only multiply cost.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What temperature did the original RLM evaluation use?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The paper never states one. It says GPT-5 ran with medium reasoning and default sampling parameters, and that Qwen3-Coder ran with the sampling parameters from its model card, which are temperature 0.7, top_p 0.8, top_k 20, and repetition penalty 1.05. Neither is a root-versus-sub-call choice.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
