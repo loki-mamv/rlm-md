@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can RLM Sub-Calls Use a Vision Language Model? | rlm.md</title>
+    <meta name="description" content="Not out of the box: the RLM paper and reference library are text-only. RVLM shows how to add vision sub-calls through REPL image functions. Here is what to add.">
+    <meta name="keywords" content="recursive language models, RLM, vision language model, VLM, multimodal RLM, llm_query, RVLM, TimeRLM, image sub-calls, REPL">
+    <link rel="canonical" href="https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html">
+    <meta property="og:title" content="Can RLM Sub-Calls Use a Vision Language Model?">
+    <meta property="og:description" content="The RLM paper and reference library pass text to sub-calls. Here is what the code actually accepts, what RVLM and TimeRLM built, and how to add a vision sub-call yourself.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Can RLM Sub-Calls Use a Vision Language Model?">
+    <meta name="twitter:description" content="RLM sub-calls are text-only by default; here is how RVLM adds vision and what you would build yourself.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="recursive language models, RLM, vision language model, VLM, multimodal RLM, llm_query, RVLM, TimeRLM, image sub-calls, REPL">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html#article",
+      "headline": "Can RLM Sub-Calls Use a Vision Language Model?",
+      "description": "Not out of the box: the RLM paper and reference library are text-only. RVLM shows how to add vision sub-calls through REPL image functions. Here is what to add.",
+      "url": "https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html",
+      "datePublished": "2026-09-22",
+      "dateModified": "2026-09-22",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html#article"
+      },
+      "wordCount": "1469"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I load a PDF with figures into an RLM as context?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The reference library loads context as a string or as JSON, so a PDF has to be converted first. You can extract the text for the normal RLM loop and render figure pages to images that a separate vision function reads on demand. The library does not do either step for you."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does llm_query accept an image in the reference library?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not officially. It is typed and documented as taking a string. From reading the code, a list of messages with image blocks should pass through the OpenAI and Anthropic clients unchanged, but the Gemini client wraps every message as text, and we did not test the path."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should the root model also be a vision model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It does not need to be if sub-calls return text. RVLM used Gemini 2.5 Flash for both roles, but its design keeps images out of the root history after the first message. A text-only root that calls a vision leaf is a valid setup as long as the root gets useful metadata about each image."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a benchmark for multimodal RLMs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not a shared one that we could find. RVLM reports qualitative and consistency results on brain MRI and chest X-ray data, and TimeRLM built its own synthetic time-series benchmark called AnomalyXL. Neither compares a vision RLM against a single long multimodal call on a common task."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Can RLM Sub-Calls Use a Vision Language Model?</h1>
+        <p class="lead">The RLM paper and its reference library pass text to sub-calls. We read the code, the follow-up papers, and the provider vision docs to see what it takes to send images instead.</p>
+    </div>
+
+    <div class="blog-meta">September 22, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> Not out of the box. The RLM paper and the reference library treat the context as text in a Python REPL, and <code>llm_query</code> is documented and typed as taking a string. You can still route a sub-call to a vision language model, but you have to build the image path yourself: keep image bytes or file references in the REPL, and pass provider-format image blocks to a VLM from code. One follow-up paper, RVLM, has already done this and is the best worked example.</p>
+        
+        <h2>What does the RLM paper say about images?</h2>
+        <p>Nothing. The <a href="https://arxiv.org/abs/2512.24601">RLM paper by Zhang, Kraska, and Khattab</a> frames the whole method as a way to let language models "process arbitrarily long prompts," and its abstract makes no mention of images or other modalities. The prompt is loaded into the REPL as a variable, the root model writes code to slice it, and sub-calls read the slices. Every piece of that loop is text.</p>
+        <p>That is a scope choice, not a hard limit of the idea. The core move (keep the input outside the model, let code pick what each call sees) does not care what the input is made of. But no experiment in the paper runs a sub-call on an image, so there is no published RLM result that tells you how well a vision sub-call works inside the loop.</p>
+        
+        <h2>Does the reference library support multimodal sub-calls?</h2>
+        <p>Not as a feature. We read the source of the <a href="https://github.com/alexzhang13/rlm">official rlm repository</a> (package version 0.1.3) and searched it for image, vision, and multimodal handling. The only "image" hits are Docker, Modal, and Daytona sandbox images. There is no image loader, no image primitive in the REPL, and no mention of vision in the README or docs.</p>
+        <p>The REPL functions are text-first by design. In <code>rlm/environments/local_repl.py</code>, <code>llm_query(prompt, model=None)</code> is annotated as <code>prompt: str</code>, and the system prompt tells the root model to use it "for simple extraction, summarization, or Q&amp;A over a chunk of text." Context loading is text or JSON as well: a string is written to a <code>.txt</code> file, and a dict or list is written with <code>json.dump</code> and read back into <code>context</code>.</p>
+        <p>There is one unadvertised opening. The client classes accept <code>str | list[dict]</code>. The OpenAI client passes a list of messages straight to <code>chat.completions.create</code>, and the Anthropic client passes the non-system messages straight to <code>messages.create</code>. Neither inspects the content of each message. So, from reading the code, a list of messages that holds image content blocks should reach a vision model through <code>llm_query</code> on those two backends. The Gemini client is different: it wraps every message content in <code>types.Part(text=content)</code>, so an image block does not survive on that backend. We did not run this path, the type hints say <code>str</code>, and nothing in the docs promises it. Treat it as a hack you must test, not a supported API.</p>
+        
+        <h2>Has anyone built an RLM with vision sub-calls?</h2>
+        <p>Yes. <a href="https://arxiv.org/abs/2603.24224">RVLM (Mayumu et al., March 2026)</a> says directly that it builds on the RLM paradigm and extends the REPL with images. It adds a <code>context_images</code> list to the REPL namespace, where each image is a dictionary with <code>data</code> (base64 or URL), <code>media_type</code>, and <code>detail</code>. It adds <code>describe_image</code>, which "sends a single image to a sub-VLM and returns a textual description," and <code>llm_query_with_images</code>, which "constructs multimodal messages and dispatches to a sub-VLM." It also exposes crop, enhance, and difference-map functions so the root can zoom into regions before it asks.</p>
+        <p>The design choice that matters most: in RVLM, only the first user message is multimodal. Every later root turn is text, and the images are reached only through the REPL functions. The authors say this cuts per-iteration API cost by about 70 to 80 percent. We could not find a measurement behind that figure in the paper, so read it as an estimate. RVLM was evaluated on brain MRI (BraTS 2023 Meningioma) and chest X-ray (MIMIC-CXR) with Gemini 2.5 Flash as both root and sub-VLM, and the abstract reports consistency and qualitative findings, not a benchmark score against a baseline.</p>
+        <p>A second example goes further from text. <a href="https://arxiv.org/abs/2608.03391">TimeRLM (Zumarraga et al., August 2026)</a> applies RLM-style recursion to long time series for anomaly localization. The series lives in the REPL as a JSON variable, and one variant gives the sandbox vision libraries so the model can "render time-series as a plot and perceive it visually." That is a useful pattern: the data is not an image, but the model turns a slice of it into one when a look beats a table of numbers.</p>
+        
+        <h2>What would you build to add vision sub-calls yourself?</h2>
+        <p>The work is small if you keep the RVLM shape. The pieces are:</p>
+        <ol>
+        <li><strong>Keep images out of the root prompt.</strong> Load file paths or base64 strings into a REPL variable, and give the root only metadata (count, file names, sizes, page numbers). This is the RLM rule applied to pixels: the root sees a handle, not the payload.</li>
+        <li><strong>Add a VLM function to the REPL.</strong> Write something like <code>vlm_query(prompt, images)</code> that builds a provider message and calls a vision model. For OpenAI, the <a href="https://developers.openai.com/api/docs/guides/images-vision">images and vision guide</a> shows an <code>image_url</code> content part that takes a URL or a <code>data:image/jpeg;base64,...</code> data URL, with a <code>detail</code> setting of low, high, original, or auto. For Anthropic, the <a href="https://platform.claude.com/docs/en/build-with-claude/vision">vision guide</a> shows an <code>image</code> content block with a base64, URL, or Files API <code>file_id</code> source.</li>
+        <li><strong>Return text only.</strong> The VLM answers in text, and that text goes back into a REPL variable like any other sub-call output. The root model keeps reasoning over strings.</li>
+        <li><strong>Add image tools the root can call in code.</strong> Crop, resize, and page-split functions let the root send a small region instead of a full scan. This is the image version of chunking a long document.</li>
+        </ol>
+        <p>Register the function in the same way the library registers <code>llm_query</code>, or run the RLM with a custom setup code block that defines it. If your VLM calls go to a separate client, the usage counters in the library will not see them, so log tokens yourself. The same sandbox concerns from our post on <a href="how-to-sandbox-the-rlm-repl.html">sandboxing the RLM REPL</a> apply, with one more: a REPL that can read image paths can read other files too.</p>
+        
+        <h2>What limits and costs change when sub-calls see images?</h2>
+        <p>Images are priced as input tokens, and the counts add up fast across many sub-calls. Anthropic states that an image costs <code>ceil(width / 28) x ceil(height / 28)</code> visual tokens, and its table lists 1,296 tokens for a 1000x1000 image. On models in its high-resolution tier, the long edge is capped at 2576 px and 4,784 visual tokens. OpenAI states that vision models "convert image inputs into billable input tokens" and that image tokens also count toward tokens-per-minute limits.</p>
+        <p>Request limits also shape how you batch. Anthropic allows 600 images per API request on most models (100 on models with a 200k-token context window), but a stricter per-image dimension limit applies once a request has more than 20 images, and the 32 MB request size limit can hit first. OpenAI lists up to 1,500 images and 512 MB per request. Anthropic also warns that base64 images in a multi-turn call are resent in the payload on every turn. That is the strongest reason to follow the RVLM rule and never put images in the root history: in an RLM the root runs many turns, and each resend is paid in full.</p>
+        <p>Parallel fan-out makes this worse. If the root calls a vision sub-call on every page of a 400-page scanned document in a batch, the rate limit will bite before the context window does. Our post on <a href="does-prompt-caching-cut-rlm-sub-call-costs.html">prompt caching for sub-calls</a> covers the text side of this cost, and the same logic applies to a shared image prefix. The sub-model also now has to be a VLM, which narrows the choice of cheap leaf models compared with <a href="what-base-model-do-you-need-for-an-rlm.html">picking a base model for a text RLM</a>.</p>
+        
+        <h2>The bottom line</h2>
+        <p>RLM sub-calls can use a vision language model, but the paper does not test it and the reference library does not ship it. The clean way is to keep images as REPL data, add a function that sends selected images or crops to a VLM, and return text to the root. RVLM is a working reference for that design, and TimeRLM shows the same idea for data you render into plots. Until someone publishes a controlled comparison, any claim that vision sub-calls beat a single long multimodal call is untested.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, v3 May 2026. Defines the RLM as a text prompt held in a REPL; no multimodal inputs. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L., et al. "rlm: General plug-and-play inference library for Recursive Language Models." GitHub, v0.1.3. Source for llm_query typing, context loading, and client message handling. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Mayumu, N., Khan, Z., Stephens, M., Mukala, P., Oroumchian, F. "RVLM: Recursive Vision-Language Models with Adaptive Depth." arXiv:2603.24224, March 2026. REPL image primitives, sub-VLM calls, and the text-only root history design. <a href="https://arxiv.org/abs/2603.24224">arxiv.org/abs/2603.24224</a></li>
+            <li>Zumarraga, N., et al. "TimeRLM: Recursive Language Models Enable Precise Anomaly Localization in Long-Context Time-Series." arXiv:2608.03391, August 2026. RLM recursion over time series with a plot-rendering vision variant. <a href="https://arxiv.org/abs/2608.03391">arxiv.org/abs/2608.03391</a></li>
+            <li>OpenAI. "Images and vision." OpenAI API docs, accessed September 2026. image_url content parts, detail levels, per-request limits, and image token billing. <a href="https://developers.openai.com/api/docs/guides/images-vision">developers.openai.com/api/docs/guides/images-vision</a></li>
+            <li>Anthropic. "Vision." Claude API docs, accessed September 2026. Image content blocks, per-request image limits, and the visual token formula. <a href="https://platform.claude.com/docs/en/build-with-claude/vision">platform.claude.com/docs/en/build-with-claude/vision</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I load a PDF with figures into an RLM as context?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The reference library loads context as a string or as JSON, so a PDF has to be converted first. You can extract the text for the normal RLM loop and render figure pages to images that a separate vision function reads on demand. The library does not do either step for you.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does llm_query accept an image in the reference library?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not officially. It is typed and documented as taking a string. From reading the code, a list of messages with image blocks should pass through the OpenAI and Anthropic clients unchanged, but the Gemini client wraps every message as text, and we did not test the path.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should the root model also be a vision model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It does not need to be if sub-calls return text. RVLM used Gemini 2.5 Flash for both roles, but its design keeps images out of the root history after the first message. A text-only root that calls a vision leaf is a valid setup as long as the root gets useful metadata about each image.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is there a benchmark for multimodal RLMs?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not a shared one that we could find. RVLM reports qualitative and consistency results on brain MRI and chest X-ray data, and TimeRLM built its own synthetic time-series benchmark called AnomalyXL. Neither compares a vision RLM against a single long multimodal call on a common task.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
