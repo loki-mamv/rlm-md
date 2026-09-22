@@ -197,7 +197,7 @@
                 <tr>
                     <td><strong>Training required</strong></td>
                     <td>Standard pretraining + fine-tuning</td>
-                    <td>~1,000 post-training samples on any base LLM</td>
+                    <td>None to start (wraps any LLM); optional post-training, e.g. ~1,000 samples for RLM-Qwen3-8B</td>
                 </tr>
             </tbody>
         </table>
@@ -235,7 +235,7 @@
                 <h2>Performance where it matters</h2>
             </div>
             <div>
-                <p>The MIT OASYS lab tested RLM-Qwen3-8B (an 8B parameter model post-trained on just 1,000 samples) against vanilla GPT-5 on four long-context benchmarks:</p>
+                <p>The MIT OASYS lab compared vanilla GPT-5 against RLM(GPT-5), an RLM with GPT-5 as the root model and GPT-5-mini sub-calls at recursion depth 1. Scores below are from Table 1 of the May 2026 revision of the paper (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>):</p>
 
                 <table>
                     <thead>
@@ -243,11 +243,14 @@
                     </thead>
                     <tbody>
                         <tr><td>S-NIAH (retrieval)</td><td>High</td><td>Comparable</td><td>≈0%</td></tr>
-                        <tr><td>OOLONG-Pairs (quadratic)</td><td>&lt;0.1% F1</td><td>58% F1</td><td><strong>+580x</strong></td></tr>
-                        <tr><td>BrowseComp-Plus</td><td>Moderate</td><td>Strong</td><td>Significant</td></tr>
-                        <tr><td>CodeQA</td><td>Degrades</td><td>Maintained</td><td>+28.3% avg</td></tr>
+                        <tr><td>OOLONG (131K tokens)</td><td>44.0</td><td>56.0</td><td>+12.0 pts</td></tr>
+                        <tr><td>OOLONG-Pairs (quadratic, 32K tokens)</td><td>0.1 F1</td><td>58.0 F1</td><td><strong>+580x</strong></td></tr>
+                        <tr><td>BrowseComp-Plus (1K docs, 6M-11M tokens)</td><td>0.0 (exceeds context)</td><td>91.3</td><td>+91.3 pts</td></tr>
+                        <tr><td>CodeQA (23K-4.2M tokens)</td><td>24.0</td><td>62.0</td><td>+38.0 pts</td></tr>
                     </tbody>
                 </table>
+
+                <p>At small scale, the lab also post-trained RLM-Qwen3-8B on 1,000 samples. It beats the base Qwen3-8B by 28.3% on average and approaches vanilla GPT-5 on three of the four tasks.</p>
 
                 <p>The OOLONG-Pairs result is the most striking. This benchmark requires comparing information across the entire input — the kind of task where attention mechanisms fundamentally struggle at scale. GPT-5 essentially fails. The RLM version handles it because it doesn't try to attend to everything at once.</p>
 
@@ -283,6 +286,8 @@
 
                 <p><strong>Keep the recursion shallow.</strong> An independent reproduction published in March 2026 rebuilt the RLM framework on DeepSeek v3.2 and Kimi K2 and measured results by recursion depth. Depth-1 recursion improved complex reasoning tasks, but depth-2 recursion made results worse — clearly so on simple retrieval tasks — while runtime and token use climbed steeply, from 3.6 seconds to 344.5 seconds on one measured task. The author's summary: deeper recursion causes models to overthink (<a href="https://arxiv.org/abs/2603.02615">Wang, arXiv:2603.02615, 2026</a>). Treat depth as a cost you justify per task, not a dial you turn up.</p>
 
+                <p>The authors' own May 2026 revision shows the depth effect depends on the model. With GPT-5, OOLONG-Pairs rose from 58.0 at depth 1 to 76.0 at depth 3. With Qwen3-Coder-480B, CodeQA fell from 56.0 at depth 1 to 44.0 at depth 3 (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3, Table 1</a>). Test deeper recursion on your own model and task before you rely on it.</p>
+
                 <div class="callout">
                     <p>The two approaches aren't mutually exclusive. An RLM uses standard LLM calls internally — it just orchestrates them recursively. You can think of it as a meta-layer on top of any LLM.</p>
                 </div>
@@ -301,7 +306,8 @@
                 <p><strong>DSPy v3.1.2+</strong> ships with built-in RLM support. If you're already using DSPy for prompt programming, adding recursive processing is a configuration change.</p>
                 <p><strong>Google's Agent Development Kit (ADK)</strong> has an enterprise-ready implementation with lazy file loading and parallel sub-calls — optimized for production workloads.</p>
                 <p><strong>Prime Intellect's Prime Agent</strong> (open-sourced August 2026) is a coding harness built directly on the RLM abstraction. Context is held as variables in a persistent IPython kernel, and sub-agents are invoked as function calls from inside the REPL. Prime Intellect reports that, running Claude Opus 5, it scored 95.5% on ARC-AGI-3 (best-of-1), above the 95.4% human-expert baseline (<a href="https://www.primeintellect.ai/blog/prime-agent" target="_blank">Prime Intellect, August 2026</a>).</p>
-                <p>The original <strong>MIT paper</strong> (<a href="https://arxiv.org/abs/2512.24601" target="_blank">arXiv:2512.24601</a>) includes the full algorithm, training data, and post-training recipe. The model weights for RLM-Qwen3-8B are available on HuggingFace. The <code>pip install rlm</code> package provides a reference implementation.</p>
+                <p>The original <strong>MIT paper</strong> (<a href="https://arxiv.org/abs/2512.24601" target="_blank">arXiv:2512.24601</a>) includes the full algorithm, training data, and post-training recipe. The model weights for RLM-Qwen3-8B are available on HuggingFace (<a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1" target="_blank">mit-oasys/rlm-qwen3-8b-v0.1</a>). The <code>pip install rlms</code> package (<a href="https://github.com/alexzhang13/rlm" target="_blank">alexzhang13/rlm</a>, Python 3.11+) provides the reference implementation; its import name is <code>rlm</code>.</p>
+                <p>In May 2026, the reference library (v0.1.2) added an RL training harness built on Prime Intellect's prime-rl. The lab used it to release <a href="https://huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1" target="_blank">RLM-Qwen3-30B-A3B v0.1</a>, a LoRA adapter for Qwen3-30B-A3B-Instruct-2507. On the lab's own evals, it scores 45.0 on OOLONG-Pairs at 32K tokens, against 42.9 for the untrained base model. The same release changed how runs end: the root model now writes its result to <code>answer["content"]</code> in the REPL and sets <code>answer["ready"] = True</code>, in place of <code>FINAL()</code> or <code>FINAL_VAR()</code> (<a href="https://github.com/alexzhang13/rlm/pull/162" target="_blank">PR #162</a>).</p>
                 <p>This isn't a research curiosity anymore. It's being deployed in production systems for document processing, code analysis, and deep research applications.</p>
             </div>
         </div>
@@ -317,7 +323,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md — Built to explain, not to impress. Content updated August 2026.</p>
+    <p>rlm.md — Built to explain, not to impress. Content updated September 2026.</p>
 </footer>
 
 <script>

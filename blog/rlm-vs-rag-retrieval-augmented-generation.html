@@ -85,7 +85,7 @@
         <p class="lead">Retrieval-Augmented Generation dominated the long-context conversation for three years. RLMs take a fundamentally different path. Here is where each one wins.</p>
     </div>
 
-    <div class="blog-meta">February 2026 &middot; Updated August 2026</div>
+    <div class="blog-meta">February 2026 &middot; Updated September 2026</div>
 
     <div class="blog-body fade-in">
 
@@ -123,6 +123,8 @@
 
         <p>At no point does the model rely on embedding similarity to find the right sections. It uses structural understanding of the document to navigate directly to what it needs. This is closer to how a human lawyer would approach the task -- and it avoids the failure modes that plague RAG on this type of work.</p>
 
+        <p><strong>Update, September 2026:</strong> the May 2026 revision of the MIT paper tests this head to head. One baseline is a GPT-5 CodeAct agent with a BM25 retriever, a retrieval-first design close to agentic RAG. On BrowseComp-Plus (1,000 documents, 6M to 11M tokens), it scored 51.0 against 91.3 for RLM(GPT-5). On OOLONG-Pairs, which needs pairwise reasoning over the whole input, it scored 24.7 against 58.0 (<a href="https://arxiv.org/abs/2512.24601v3">arXiv:2512.24601v3, Table 1</a>).</p>
+
         <h2>The completeness advantage</h2>
 
         <p>For tasks where completeness matters, RLMs have a structural advantage. Because the model has programmatic access to the entire input, it can implement exhaustive processing strategies. It can iterate over every section of a document, every file in a codebase, every row in a dataset. It can verify that it has processed everything by checking counts, comparing against a known structure, or simply scanning from start to end.</p>
@@ -138,6 +140,8 @@
         <p>For latency-sensitive applications, RAG remains superior when the task is genuinely a retrieval task. A well-tuned RAG pipeline can return results in under a second. An RLM processing the same corpus will take longer, because it involves multiple sequential LLM calls. Parallel sub-calls help, but the recursive structure imposes some inherent serialization.</p>
 
         <p><strong>Update, March 2026:</strong> an independent reproduction of the MIT work sharpens this trade-off. Wang (<a href="https://arxiv.org/abs/2603.02615">arXiv:2603.02615</a>) rebuilt the RLM framework on DeepSeek v3.2 and Kimi K2 and measured performance by recursion depth on the S-NIAH and OOLONG benchmarks. Depth-1 recursion improved results on complex reasoning tasks, but depth-2 recursion made results worse, especially on simple retrieval tasks. Cost and latency grew sharply with depth: one measured task went from 3.6 seconds at shallow depth to 344.5 seconds at depth 2. The practical guidance is to keep recursion shallow. Deeper recursion is not a free accuracy dial, and on retrieval-shaped work it moves you further from where RAG already performs well.</p>
+
+        <p>The MIT authors' May 2026 revision adds a caveat: the depth effect depends on the model. With GPT-5, OOLONG-Pairs rose from 58.0 at depth 1 to 76.0 at depth 3. With Qwen3-Coder-480B, CodeQA fell from 56.0 to 44.0 over the same range (<a href="https://arxiv.org/abs/2512.24601v3">arXiv:2512.24601v3</a>). Shallow recursion is still the safe default, but test depth on your own model.</p>
 
         <h2>When to use which</h2>
 
@@ -156,7 +160,7 @@
         <div class="ref-list">
             <h3>References</h3>
             <ol>
-                <li>Zhang, A., Kraska, T., & Khattab, O. (2025). Recursive Language Models. arXiv:2512.24601. MIT OASYS Lab.</li>
+                <li>Zhang, A., Kraska, T., & Khattab, O. (2025). Recursive Language Models. <a href="https://arxiv.org/abs/2512.24601v3">arXiv:2512.24601</a> (v3, May 2026). MIT OASYS Lab.</li>
                 <li>Wang, D. (2026). Think, But Don't Overthink: Reproducing Recursive Language Models. <a href="https://arxiv.org/abs/2603.02615">arXiv:2603.02615</a>.</li>
                 <li>Lewis, P., et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. NeurIPS 2020.</li>
                 <li>Gao, Y., et al. (2024). Retrieval-Augmented Generation for Large Language Models: A Survey. arXiv:2312.10997.</li>
@@ -172,7 +176,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated August 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
 </footer>
 
 <script>
