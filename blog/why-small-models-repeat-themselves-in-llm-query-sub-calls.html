@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls? | rlm.md</title>
+    <meta name="description" content="Small sub-call models loop because each repeated line makes the next more likely. Greedy decoding and no output cap let it run. Here is the evidence and the fixes.">
+    <meta name="keywords" content="RLM, recursive language models, llm_query, sub-calls, repetition, neural text degeneration, repetition penalty, presence penalty, Qwen3-4B, decoding">
+    <link rel="canonical" href="https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html">
+    <meta property="og:title" content="Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls?">
+    <meta property="og:description" content="A Qwen3-4B sub-call in the reference RLM repo found the right answer, then repeated it hundreds of times. The degeneration research explains why, and the fixes are mostly sampling settings.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls?">
+    <meta name="twitter:description" content="Why small RLM sub-call models get stuck in repetition loops, and the sampling settings that stop it.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM, recursive language models, llm_query, sub-calls, repetition, neural text degeneration, repetition penalty, presence penalty, Qwen3-4B, decoding">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html#article",
+      "headline": "Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls?",
+      "description": "Small sub-call models loop because each repeated line makes the next more likely. Greedy decoding and no output cap let it run. Here is the evidence and the fixes.",
+      "url": "https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html",
+      "datePublished": "2026-09-24",
+      "dateModified": "2026-09-24",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html#article"
+      },
+      "wordCount": "1461"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does the RLM paper report repetition loops inside sub-calls?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The paper reports repetition at the root, where Qwen3-Coder re-verified its answer and re-ran its sub-call process five times. It does not measure token-level loops inside a single llm_query response. The only public report of that we found is issue #146 on the reference repository."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I set repetition_penalty on an extraction sub-call?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Be careful. In vLLM, repetition_penalty counts tokens in the prompt as well as the output, so it can push against copying values out of the context. presence_penalty and frequency_penalty only count generated tokens, which makes them a safer choice for extraction."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is temperature 0 safe for small sub-call models?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not always. The Qwen3 model card warns against greedy decoding in thinking mode because it can cause endless repetitions, and Holtzman et al. found that low temperatures raise repetition in open-ended text. A low but nonzero temperature with the vendor top_p and top_k is the safer default."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the reference RLM library cap sub-call output by default?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. sub_sampling_args defaults to None, so the OpenAI-compatible client sends no output cap and the server default applies. Pass max_tokens in sub_sampling_args and the client forwards it as max_completion_tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Will a bigger sub-call model stop the loops?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It may help, but the research does not show that repetition goes away with scale. The self-reinforcement effect was found across model sizes. A bigger hosted model mostly helps because a provider tunes its sampling defaults for you."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls?</h1>
+        <p class="lead">A small sub-call model finds the right answer, then prints it again and again until the token limit. That loop has a well-studied cause, and most of the fixes live in the sampler.</p>
+    </div>
+
+    <div class="blog-meta">September 24, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> a small sub-call model repeats itself for the same reason any language model does: once a sentence is in the context, the model rates it as more likely, and each copy raises the odds of the next. Greedy or low-temperature decoding, a missing stop signal, and no output cap turn that bias into a loop that runs until the token limit. The RLM papers do not study this inside <code>llm_query</code>, but a Qwen3-4B report on the reference repo shows it, and the fixes are sampling settings, an output cap, and a check in the REPL.</p>
+        
+        <h2>What does the repetition look like inside an RLM?</h2>
+        <p>The clearest public case is <a href="https://github.com/alexzhang13/rlm/issues/146">issue #146</a> on the reference RLM repository, opened in April 2026. The reporter used Qwen3-4B as the sub-call model and called <code>llm_query</code> with a short extraction prompt over a finance table. The model first invented context that was not in the table, including a date of "35 December 2019." It then found the right values and, in the reporter's words, "enters an infinite repetition loop" of <code>Answer: £1.2 million (2018), £0.8 million (2019)</code> "repeated hundreds of times until max tokens is exhausted."</p>
+        <p>Note the order. The correct answer appears first, and the loop starts after it. The model knew the answer. It did not know how to stop.</p>
+        <p>That is a different failure from the ones our post on <a href="rlm-limitations-failure-modes.html">RLM limitations and failure modes</a> covers. The RLM paper does describe repetition, but at the root, not inside a sub-call. In a worked trajectory in its appendix, the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> says Qwen3-Coder "will continue to repeatedly verify its answers" and re-ran its whole sub-call process five times before it returned a wrong answer. The <a href="https://arxiv.org/abs/2603.02615">reproduction study by Daren Wang</a> reports the same pattern at depth 2: models "continuously launching new API calls to re-verify already extracted answers." Both are loops of whole steps by large root models. Neither paper measures token-level loops inside a single sub-call response.</p>
+        
+        <h2>Why do language models fall into loops at all?</h2>
+        <p>The research on this predates RLMs by years, and it points at two causes: the decoding rule and the model itself.</p>
+        <p>On decoding, <a href="https://arxiv.org/abs/1904.09751">Holtzman et al.</a> found that "using likelihood as a decoding objective leads to text that is bland and strangely repetitive." Their key figure shows that "the probability of a repeated phrase increases with each repetition, creating a positive feedback loop," and they found this held "for the vast majority of phrases we tested." In their GPT-2 experiments, "sampling with temperatures lower than 0.9 severely increase repetition."</p>
+        <p><a href="https://arxiv.org/abs/2206.02369">Xu et al.</a> put a name on the mechanism: a <em>self-reinforcement effect</em>. "The more times a sentence is repeated in the context, the higher the probability of continuing to generate that sentence," and sentences that start with a high probability reinforce faster. Their analysis explains why the confident sentence is the one that loops: greedy decoding picks high-likelihood sentences, and high-likelihood sentences are the ones most likely to repeat. That fits issue #146 well. <code>Answer: £1.2 million (2018), £0.8 million (2019)</code> is exactly the kind of short, confident line the model rates highly.</p>
+        <p>On the model side, <a href="https://arxiv.org/abs/1908.04319">Welleck et al.</a> argue that the training objective is also at fault: likelihood training gives "too much probability to sequences containing repeats and frequent words." So a better sampler reduces the loop, but it does not remove the bias that causes it.</p>
+        
+        <h2>Is this specific to small models?</h2>
+        <p>Not as far as the evidence goes. We found no published measure of repetition rate against model size for RLM sub-calls, and the research above covers models of many sizes. The model Xu et al. trained has 750M parameters, and Holtzman et al. studied GPT-2.</p>
+        <p>What is specific to small models in practice is who controls the sampler. Frontier sub-call models such as GPT-5-mini, which the RLM paper used for sub-calls, run behind a provider API with the provider's defaults. Small open-weights models such as Qwen3-4B or Qwen3-8B usually run on your own server, and then the decoding settings are your job. The model vendor knows this failure well. The <a href="https://huggingface.co/Qwen/Qwen3-4B">Qwen3-4B model card</a> says of thinking mode: "DO NOT use greedy decoding, as it can lead to performance degradation and endless repetitions." It also says: "If you encounter significant endless repetitions," set <code>presence_penalty</code> to 1.5.</p>
+        <p>Small models also have less headroom. The RLM authors report that "smaller models like Qwen3-8B" struggled as RLMs without enough coding ability, which is why they post-trained RLM-Qwen3-8B. Our guide to <a href="what-base-model-do-you-need-for-an-rlm.html">choosing a base model for an RLM</a> covers that side. Sub-calls, the paper says, need to behave roughly like "a general purpose reasoning model," and a 4B model with poor sampling settings falls short of that.</p>
+        
+        <h2>Is the chat template the cause?</h2>
+        <p>Probably not in the current library, although the reporter suggested it. Issue #146 proposed that <code>llm_query</code> "passes the prompt string directly to the model as a raw completion," so the model gets no end-of-turn signal. We read the reference library source (v0.1.3). Its OpenAI-compatible client wraps a string prompt as <code>[{"role": "user", "content": prompt}]</code> and sends it to <code>chat.completions.create</code>. A chat server such as vLLM applies the model's own chat template to that request; the <a href="https://github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md">vLLM server docs</a> say the chat API needs a model with a chat template. So the turn markers are there.</p>
+        <p>The template theory is still worth a check if you use a custom backend that calls a raw completions endpoint. As of this writing, the issue is open and has no maintainer reply.</p>
+        <p>Two other library facts matter more. First, sub-call sampling is off by default: <code>sub_sampling_args</code> defaults to <code>None</code>, so the library sends no output cap and no penalty. Second, vLLM "applies <code>generation_config.json</code> from the Hugging Face model repository if it exists." For Qwen3-4B, the card says that file holds the thinking-mode settings. Your sub-call settings may therefore come from the model repo, not your code.</p>
+        
+        <h2>Which fixes actually work?</h2>
+        <ol>
+        <li><strong>Cap the output.</strong> A sub-call that extracts two numbers does not need thousands of tokens. Pass <code>max_tokens</code> in <code>sub_sampling_args</code>; the OpenAI client renames it to <code>max_completion_tokens</code>. This does not stop the loop, but it bounds the cost and the time.</li>
+        <li><strong>Use the vendor sampling settings, not greedy.</strong> For Qwen3 in non-thinking mode the card suggests <code>Temperature=0.7</code>, <code>TopP=0.8</code>, <code>TopK=20</code>. This is a tension with our post on <a href="different-temperatures-for-rlm-root-and-sub-calls.html">root and sub-call temperatures</a>, which puts extraction sub-calls at the low end. The two fit together: go low, but not to zero, and follow the model card for small open models.</li>
+        <li><strong>Prefer presence or frequency penalty to repetition penalty for extraction.</strong> In vLLM, <code>presence_penalty</code> and <code>frequency_penalty</code> act on "the generated text so far." <code>repetition_penalty</code> acts on "the prompt and the generated text so far." An extraction sub-call has to copy values from its prompt, so a penalty on prompt tokens pushes against the exact tokens you want. The original <a href="https://arxiv.org/abs/1909.05858">CTRL repetition penalty</a> was defined on generated tokens only, with θ ≈ 1.2, and its authors note it "succeeds only if the model has learned a sufficiently reliable distribution." The Qwen card also warns that a high <code>presence_penalty</code> "may occasionally result in language mixing."</li>
+        <li><strong>Ask for a short, closed format.</strong> A prompt that asks for one JSON object or one line gives the model a clear end point. You can then add a stop string at the end of that format. vLLM exposes <code>stop</code> strings, and generation ends when one appears.</li>
+        <li><strong>Clean the result in the REPL.</strong> The root model gets the sub-call output as a Python string. Parse the first valid answer, or cut repeated lines, before you store it. A loop that the root never sees cannot pollute the aggregate.</li>
+        </ol>
+        <p>Track the rate. Log output length and a simple repeated-line count for each sub-call, and treat any response that hits the cap as a failure in your eval. Run the same slices more than once, since a loop may appear on one sample and not the next.</p>
+        
+        <h2>The bottom line</h2>
+        <p>Repetition inside <code>llm_query</code> is ordinary neural text degeneration, not a new RLM failure. The research explains it: each repeat makes the next one more likely, and maximization-style decoding lets that feedback run. Small open models show it most in RLM setups because you, not a provider, own the sampler, and the defaults are often wrong for the job. Cap sub-call output, follow the model card instead of greedy decoding, avoid penalties on prompt tokens for extraction, and parse the answer in code before the root uses it.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, v3 May 2026. Root-level repeated verification by Qwen3-Coder (Appendix E), GPT-5-mini sub-calls, Qwen3-8B struggles, sub-call role. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Redundant sub-call loops and re-verification at depth 2. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>YWenxi. "llm_query produces repetitive output with Qwen3-4B." alexzhang13/rlm issue #146, GitHub, April 2026. Public report of a sub-call repetition loop with Qwen3-4B. <a href="https://github.com/alexzhang13/rlm/issues/146">github.com/alexzhang13/rlm/issues/146</a></li>
+            <li>Zhang, A. L., et al. "rlm: inference library for Recursive Language Models." GitHub, v0.1.3. OpenAI client message wrapping, sub_sampling_args default, max_tokens rename. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Holtzman, A., Buys, J., Du, L., Forbes, M., Choi, Y. "The Curious Case of Neural Text Degeneration." ICLR 2020, arXiv:1904.09751. Repetition feedback loop and effect of low temperature. <a href="https://arxiv.org/abs/1904.09751">arxiv.org/abs/1904.09751</a></li>
+            <li>Xu, J., Liu, X., Yan, J., Cai, D., Li, H., Li, J. "Learning to Break the Loop: Analyzing and Mitigating Repetitions for Neural Text Generation." NeurIPS 2022, arXiv:2206.02369. Self-reinforcement effect of sentence-level repetition. <a href="https://arxiv.org/abs/2206.02369">arxiv.org/abs/2206.02369</a></li>
+            <li>Welleck, S., Kulikov, I., Roller, S., Dinan, E., Cho, K., Weston, J. "Neural Text Generation with Unlikelihood Training." arXiv:1908.04319, August 2019. Likelihood training over-weights repeats. <a href="https://arxiv.org/abs/1908.04319">arxiv.org/abs/1908.04319</a></li>
+            <li>Keskar, N. S., McCann, B., Varshney, L. R., Xiong, C., Socher, R. "CTRL: A Conditional Transformer Language Model for Controllable Generation." arXiv:1909.05858, September 2019. Original penalized sampling (repetition penalty) definition. <a href="https://arxiv.org/abs/1909.05858">arxiv.org/abs/1909.05858</a></li>
+            <li>Qwen Team. "Qwen3-4B" model card. Hugging Face, accessed September 2026. Greedy decoding warning, presence_penalty guidance, recommended sampling settings. <a href="https://huggingface.co/Qwen/Qwen3-4B">huggingface.co/Qwen/Qwen3-4B</a></li>
+            <li>vLLM Project. "SamplingParams" source and "OpenAI-Compatible Server" docs. GitHub, accessed September 2026. Penalty definitions, stop strings, generation_config defaults, chat template requirement. <a href="https://github.com/vllm-project/vllm/blob/main/vllm/sampling_params.py">github.com/vllm-project/vllm/blob/main/vllm/sampling_params.py</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the RLM paper report repetition loops inside sub-calls?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The paper reports repetition at the root, where Qwen3-Coder re-verified its answer and re-ran its sub-call process five times. It does not measure token-level loops inside a single llm_query response. The only public report of that we found is issue #146 on the reference repository.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should I set repetition_penalty on an extraction sub-call?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Be careful. In vLLM, repetition_penalty counts tokens in the prompt as well as the output, so it can push against copying values out of the context. presence_penalty and frequency_penalty only count generated tokens, which makes them a safer choice for extraction.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is temperature 0 safe for small sub-call models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not always. The Qwen3 model card warns against greedy decoding in thinking mode because it can cause endless repetitions, and Holtzman et al. found that low temperatures raise repetition in open-ended text. A low but nonzero temperature with the vendor top_p and top_k is the safer default.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the reference RLM library cap sub-call output by default?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. sub_sampling_args defaults to None, so the OpenAI-compatible client sends no output cap and the server default applies. Pass max_tokens in sub_sampling_args and the client forwards it as max_completion_tokens.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Will a bigger sub-call model stop the loops?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It may help, but the research does not show that repetition goes away with scale. The self-reinforcement effect was found across model sizes. A bigger hosted model mostly helps because a provider tunes its sampling defaults for you.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

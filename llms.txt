@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [Why Do Small Models Repeat Themselves Inside llm_query Sub-Calls? | rlm.md](https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html)
 - [Can RLM Sub-Calls Use a Vision Language Model? | rlm.md](https://rlm.md/blog/can-rlm-sub-calls-use-a-vision-language-model.html)
 - [Should the Root Model and the Sub-Calls Use Different Temperatures in an RLM? | rlm.md](https://rlm.md/blog/different-temperatures-for-rlm-root-and-sub-calls.html)
 - [Why Does My RLM Hallucinate REPL Output Instead of Running the Code? | rlm.md](https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html)
