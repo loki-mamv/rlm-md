@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Does dspy.RLM Differ From the Reference RLM Library? | rlm.md</title>
+    <meta name="description" content="dspy.RLM runs the RLM loop in a typed DSPy signature with one level of llm_query sub-calls. The reference rlms library adds rlm_query recursion and sandboxes.">
+    <meta name="keywords" content="dspy.RLM, DSPy RLM, recursive language models, rlms library, alexzhang13 rlm, llm_query, rlm_query, RLM sandbox, max_depth">
+    <link rel="canonical" href="https://rlm.md/blog/dspy-rlm-vs-reference-rlm-library.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/dspy-rlm-vs-reference-rlm-library.html">
+    <meta property="og:title" content="How Does dspy.RLM Differ From the Reference RLM Library?">
+    <meta property="og:description" content="dspy.RLM and the reference rlms library share the same REPL loop but differ in recursion depth, sandboxing, budgets and training. Here is what each one does.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Does dspy.RLM Differ From the Reference RLM Library?">
+    <meta name="twitter:description" content="dspy.RLM vs the reference RLM library: typed signatures and prompt tuning versus rlm_query recursion, cloud sandboxes and RL training.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="dspy.RLM, DSPy RLM, recursive language models, rlms library, alexzhang13 rlm, llm_query, rlm_query, RLM sandbox, max_depth">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/dspy-rlm-vs-reference-rlm-library.html#article",
+      "headline": "How Does dspy.RLM Differ From the Reference RLM Library?",
+      "description": "dspy.RLM runs the RLM loop in a typed DSPy signature with one level of llm_query sub-calls. The reference rlms library adds rlm_query recursion and sandboxes.",
+      "url": "https://rlm.md/blog/dspy-rlm-vs-reference-rlm-library.html",
+      "datePublished": "2026-09-28",
+      "dateModified": "2026-09-28",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/dspy-rlm-vs-reference-rlm-library.html#article"
+      },
+      "wordCount": "1164"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is dspy.RLM written by the same people as the RLM paper?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The paper is by Alex L. Zhang, Tim Kraska and Omar Khattab. The reference code lives in the alexzhang13/rlm repository, while dspy.RLM lives in the stanfordnlp/dspy repository. The reference README lists DSPy.RLM among projects that use RLMs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the pip package name for the reference RLM library?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The README says to run pip install rlms, and it requires Python 3.11 or later. You then import it with from rlm import RLM. DSPy users get dspy.RLM with the normal dspy install."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can dspy.RLM use a cheaper model for sub-calls?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Pass a dspy.LM as sub_lm and llm_query and llm_query_batched will use it. If you leave it unset, sub-calls use dspy.settings.lm, the same model that drives the loop."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if dspy.RLM runs out of iterations?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It does not return nothing. A second predictor called extract reads the variable metadata and the full REPL history and fills the output fields directly. You get the best answer the trajectory supports."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the reference RLM library run code safely by default?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The default local environment runs code in the same process as the RLM through Python exec, and the README says not to use it in production. Pick docker, modal, prime, daytona or e2b for isolation."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Does dspy.RLM Differ From the Reference RLM Library?</h1>
+        <p class="lead">Both run the same REPL loop from the Recursive Language Models paper. They differ in how deep sub-calls go, where code runs, and what you can tune.</p>
+    </div>
+
+    <div class="blog-meta">September 28, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> <code>dspy.RLM</code> is a DSPy module that runs the RLM loop inside a typed signature, with one level of sub-calls through <code>llm_query</code>, a WASM sandbox by default, and prompts an optimizer can tune. The reference library, <code>rlms</code> from the paper authors, is a standalone inference engine: it adds true recursive child RLMs through <code>rlm_query</code>, many sandbox backends, cost and time budgets, and a training harness. Pick DSPy when the RLM is one step in a larger DSPy program. Pick the reference library when you want the full paradigm as the paper describes it.</p>
+
+        <h2>Where do the two implementations come from?</h2>
+        <p>The idea comes from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a> by Alex L. Zhang, Tim Kraska and Omar Khattab. The paper treats a long prompt "as part of an external environment" and lets the model "programmatically examine, decompose, and recursively call itself over snippets of the prompt." The authors keep the reference code at <a href="https://github.com/alexzhang13/rlm">alexzhang13/rlm</a>, installed with <code>pip install rlms</code>, and describe it as "an extensible inference engine and training environment."</p>
+        <p>DSPy ships its own version in <a href="https://github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py"><code>dspy/predict/rlm.py</code></a>, next to <code>ReAct</code> and <code>ProgramOfThought</code>. The reference README lists "DSPy.RLM" first in its section on RLMs used in the wild, so the two projects know about each other. They share the core loop: context lives in a REPL variable, the model writes Python, and code can call a sub-model. The differences are in what wraps that loop.</p>
+
+        <h2>How do you call each one?</h2>
+        <p>The reference library replaces a chat call. You build <code>RLM(backend="openai", backend_kwargs={"model_name": ...})</code> and call <code>rlm.completion(prompt)</code>. The README frames it as a drop-in for <code>llm.completion(prompt, model)</code>. Input is a prompt, and output is text.</p>
+        <p>DSPy starts from a signature instead. The <a href="https://github.com/stanfordnlp/dspy/blob/main/docs/docs/diving-deeper/rlm.md">DSPy RLM guide</a> says <code>dspy.RLM</code> "takes the same signature you'd hand <code>Predict</code> or <code>ChainOfThought</code>." Input fields become REPL variables. Output fields define what the model must return, with types. The model ends a run by calling <code>SUBMIT(...)</code>, and DSPy parses each value to its declared type. On a type error it feeds the message back for another try.</p>
+        <p>The reference library ends a run in a different way. In its current system prompt, the REPL holds an <code>answer</code> dict, and the run stops when the model sets <code>answer["ready"] = True</code>. The result is free text in <code>answer["content"]</code>, with no schema check.</p>
+
+        <h2>Does dspy.RLM actually recurse?</h2>
+        <p>Only one level, and this is the largest difference. DSPy injects two functions into the sandbox: <code>llm_query(prompt)</code> and <code>llm_query_batched(prompts)</code>. Each is a plain model call that returns text. A sub-call cannot open its own REPL. The <code>dspy.RLM</code> source has no <code>rlm_query</code> and no depth setting.</p>
+        <p>The reference library has both kinds of call. Its prompt describes <code>llm_query</code> as "a single LLM completion call (no REPL, no iteration)" and <code>rlm_query</code> as a function that "spawns a recursive RLM sub-call," where "the child gets its own REPL environment." <code>rlm_query_batched</code> runs several children in parallel, capped by <code>max_concurrent_subcalls</code> (default 4). Depth is set with <code>max_depth</code>. The docstring says that "when depth &gt;= max_depth," a call "falls back to plain LM completion." The default <code>max_depth</code> is 1, so out of the box the reference library also behaves like a one-level system. You raise the limit to get deeper trees. Our post on <a href="how-deep-should-an-rlm-recurse.html">how deep an RLM should recurse</a> covers when that is worth it.</p>
+
+        <h2>How do budgets and model choice differ?</h2>
+        <p>DSPy has three limits, all set in the constructor: <code>max_iters</code> (default 20), <code>max_llm_calls</code> (default 50) and <code>max_output_chars</code> (default 10_000). Each prompt in a batch counts as one call against <code>max_llm_calls</code>. When the cap is hit, the error goes back to the model so it can finish in plain Python. If the loop runs out of iterations without a <code>SUBMIT</code>, a separate <code>extract</code> predictor reads the history and fills the outputs.</p>
+        <p>The reference library has more stop conditions: <code>max_iterations</code> (default 30), <code>max_budget</code> in USD, <code>max_timeout</code> in seconds, <code>max_tokens</code> and <code>max_errors</code>. The docstring notes that <code>max_budget</code> "requires cost-tracking backend (e.g., OpenRouter)." It has no direct cap on the number of sub-calls.</p>
+        <p>For a cheaper sub-model, DSPy uses one argument, <code>sub_lm</code>, which falls back to <code>dspy.settings.lm</code>. The reference library uses <code>other_backends</code> and <code>other_backend_kwargs</code>, and its sub-call functions take an optional <code>model</code> argument. It also has separate <code>sampling_args</code> and <code>sub_sampling_args</code>, which matters if you want <a href="different-temperatures-for-rlm-root-and-sub-calls.html">different temperatures for root and sub-calls</a>.</p>
+
+        <h2>Where does the generated code run?</h2>
+        <p>DSPy defaults to <code>PythonInterpreter</code>, which the guide says runs code "in a Deno and Pyodide WASM sandbox with no filesystem or network access." You can pass <code>interpreter_factory=</code> to swap it. <code>LocalInterpreter</code> runs normal CPython, and the guide warns it is "for trusted code." Each call builds a fresh interpreter and shuts it down at the end. Large inputs such as DataFrames can load once through <code>SandboxSerializable</code>, so the model works with the real object.</p>
+        <p>The reference library defaults the other way. Its <code>local</code> environment runs code "in the same process as the RLM itself," and the README says it "should not be used for production settings." For isolation it supports <code>ipython</code>, <code>docker</code>, <code>modal</code>, <code>prime</code>, <code>daytona</code> and <code>e2b</code>. It also offers <code>persistent=True</code> for multi-turn sessions and <code>compaction=True</code> to summarize long root history. DSPy has neither option. So DSPy is safer by default, and the reference library has more ways to run remote. Our guide to <a href="how-to-sandbox-the-rlm-repl.html">sandboxing the RLM REPL</a> compares the risks.</p>
+
+        <h2>Can you optimize or train either one?</h2>
+        <p>This is where each project plays to its origin. In DSPy, the action and extract steps "are ordinary <code>dspy.Predict</code> instances," so optimizers can tune the prompts. The guide names GEPA and MIPROv2 and says tuning "improves the loop's behavior, not just the task instructions." You get prompt optimization with no weight updates.</p>
+        <p>The reference library goes after the weights. Its <code>training/</code> folder exposes <code>rlm.RLM</code> as a <code>verifiers</code> environment that plugs into Prime Intellect's <code>prime-rl</code>, with an OOLONG example. The paper reports that the authors "post-train the first model around the RLM," called RLM-Qwen3-8B. DSPy has no training harness for the loop.</p>
+        <p>DSPy also marks the class with <code>@experimental</code>. The guide says to "pin a version if you depend on it." The reference repo changes fast too, so pin both.</p>
+
+        <h2>The bottom line</h2>
+        <p>Use <code>dspy.RLM</code> when you already build in DSPy, want typed outputs, want a safe sandbox by default, and plan to tune prompts with an optimizer. Accept that sub-calls are single model calls, one level deep. Use the reference <code>rlms</code> library when you need child RLMs through <code>rlm_query</code>, cloud sandboxes, dollar or time budgets, or RL training. Treat it as the version closest to the paper. Both are young and both change often, so read the source for the release you install.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025 (v3 May 2026). Defines the RLM paradigm and reports RLM-Qwen3-8B post-training. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L., et al. "rlm" GitHub repository, README. Install as rlms, REPL environments, training harness, and the list of projects using RLMs, including DSPy.RLM. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/rlm.py" source. Constructor parameters including max_depth, max_iterations, max_budget, other_backends and max_concurrent_subcalls. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/core/rlm.py">github.com/alexzhang13/rlm/blob/main/rlm/core/rlm.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/utils/prompts.py" source. System prompt describing llm_query, rlm_query and the answer dict used to end a run. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py">github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py</a></li>
+            <li>Stanford NLP. "dspy/predict/rlm.py" source. The experimental RLM module and its constructor defaults. <a href="https://github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py">github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py</a></li>
+            <li>Stanford NLP. "RLM: exploring large contexts with code." DSPy documentation. Design of dspy.RLM: signatures, llm_query, budgets, sandbox, extract fallback and optimization. <a href="https://github.com/stanfordnlp/dspy/blob/main/docs/docs/diving-deeper/rlm.md">github.com/stanfordnlp/dspy/blob/main/docs/docs/diving-deeper/rlm.md</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is dspy.RLM written by the same people as the RLM paper?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The paper is by Alex L. Zhang, Tim Kraska and Omar Khattab. The reference code lives in the alexzhang13/rlm repository, while dspy.RLM lives in the stanfordnlp/dspy repository. The reference README lists DSPy.RLM among projects that use RLMs.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is the pip package name for the reference RLM library?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The README says to run pip install rlms, and it requires Python 3.11 or later. You then import it with from rlm import RLM. DSPy users get dspy.RLM with the normal dspy install.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can dspy.RLM use a cheaper model for sub-calls?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. Pass a dspy.LM as sub_lm and llm_query and llm_query_batched will use it. If you leave it unset, sub-calls use dspy.settings.lm, the same model that drives the loop.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What happens if dspy.RLM runs out of iterations?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It does not return nothing. A second predictor called extract reads the variable metadata and the full REPL history and fills the output fields directly. You get the best answer the trajectory supports.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the reference RLM library run code safely by default?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The default local environment runs code in the same process as the RLM through Python exec, and the README says not to use it in production. Pick docker, modal, prime, daytona or e2b for isolation.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
