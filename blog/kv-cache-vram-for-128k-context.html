@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Much VRAM Does the KV Cache Need for a 128K Context? | rlm.md</title>
+    <meta name="description" content="At BF16, a 128K-token KV cache takes 16 GiB for Llama 3.1 8B and 40 GiB for 70B. The formula, worked numbers for 5 models, and how GQA and FP8 cut it.">
+    <meta name="keywords" content="KV cache size, KV cache VRAM, 128K context memory, KV cache formula, grouped-query attention, GQA, KV cache quantization, KIVI, MLA, PagedAttention, recursive language models">
+    <link rel="canonical" href="https://rlm.md/blog/kv-cache-vram-for-128k-context.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/kv-cache-vram-for-128k-context.html">
+    <meta property="og:title" content="How Much VRAM Does the KV Cache Need for a 128K Context?">
+    <meta property="og:description" content="The KV cache formula, worked 128K numbers for Llama 3.1, Mistral NeMo and Phi-3, and how GQA, FP8, KIVI and latent attention shrink it.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Much VRAM Does the KV Cache Need for a 128K Context?">
+    <meta name="twitter:description" content="A 128K KV cache: 16 GiB for Llama 3.1 8B, 40 GiB for 70B, 48 GiB for Phi-3-mini. Here is the math.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="KV cache size, KV cache VRAM, 128K context memory, KV cache formula, grouped-query attention, GQA, KV cache quantization, KIVI, MLA, PagedAttention, recursive language models">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/kv-cache-vram-for-128k-context.html#article",
+      "headline": "How Much VRAM Does the KV Cache Need for a 128K Context?",
+      "description": "At BF16, a 128K-token KV cache takes 16 GiB for Llama 3.1 8B and 40 GiB for 70B. The formula, worked numbers for 5 models, and how GQA and FP8 cut it.",
+      "url": "https://rlm.md/blog/kv-cache-vram-for-128k-context.html",
+      "datePublished": "2026-09-30",
+      "dateModified": "2026-09-30",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/kv-cache-vram-for-128k-context.html#article"
+      },
+      "wordCount": "1127"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is 128K context 128,000 or 131,072 tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Model configs such as Llama 3.1 and Mistral NeMo set max_position_embeddings to 131,072, which is 128 x 1,024. At exactly 128,000 tokens the cache is about 2% smaller. For Llama 3.1 8B that is about 15.6 GiB instead of 16 GiB."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the KV cache include the prompt or only generated tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Both. Every token in the sequence, prompt and output, adds keys and values in every layer. A 120K-token prompt with an 8K-token answer fills the same cache as a 128K sequence."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is my real VRAM use higher than the formula?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The formula covers the cache only. Model weights, activations, CUDA context and the serving engine's pre-allocated memory all add to it. Engines such as vLLM reserve a fraction of GPU memory up front for the cache."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does FP8 KV cache hurt quality?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It depends on the model and the engine's scaling method, so test it on your own tasks. Research on 2-bit caches such as KIVI reports almost the same quality on Llama, Falcon and Mistral models, which suggests 8-bit usually has headroom. Measure before relying on it for accuracy-critical work."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do RLMs avoid the KV cache entirely?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Every root call and sub-call still uses a KV cache for its own context. The difference is that the full input sits in the REPL as data, so no single call has to hold the whole document in cache."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Much VRAM Does the KV Cache Need for a 128K Context?</h1>
+        <p class="lead">The answer is arithmetic, not guesswork: five numbers from the model config give the cache size. Here are the numbers for common models, and the levers that shrink them.</p>
+    </div>
+
+    <div class="blog-meta">September 30, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> The KV cache for one 128K-token sequence needs 16 GiB for Llama 3.1 8B and 40 GiB for Llama 3.1 70B, at 16-bit precision. The formula is 2 × layers × KV heads × head dimension × bytes per value × tokens. Grouped-query attention, FP8 or 2-bit cache quantization, and latent attention can cut that by 2x to 16x. Serving several long requests at once multiplies the total.</p>
+
+        <h2>What is the formula for KV cache memory?</h2>
+        <p>During generation, a transformer stores a key vector and a value vector for every token, in every layer, for every key-value head. That store is the KV cache. It lets the model attend to earlier tokens without recomputing them.</p>
+        <p>The size per token is:</p>
+        <p><code>bytes per token = 2 × n_layers × n_kv_heads × head_dim × bytes_per_value</code></p>
+        <p>The 2 counts keys and values. Multiply by the number of tokens in the sequence, then by the number of sequences in the batch. At BF16 or FP16, <code>bytes_per_value</code> is 2.</p>
+        <p>The <a href="https://arxiv.org/abs/2309.06180">vLLM PagedAttention paper</a> gives a worked example. For the 13B-parameter OPT model, one token needs 800 KB: 2 (keys and values) × 5120 (hidden size) × 40 (layers) × 2 (bytes per FP16). OPT uses full multi-head attention, so the hidden size equals KV heads times head dimension. The paper notes that OPT's 2,048-token limit capped a single request at about 1.6 GB. At 128K tokens, the same arithmetic gives numbers that exceed most single GPUs.</p>
+
+        <h2>How much VRAM does a 128K context need for common models?</h2>
+        <p>Here "128K" means 131,072 tokens, the <code>max_position_embeddings</code> value in the Llama 3.1 and Mistral NeMo configs. All figures assume a BF16 cache and a batch of one. The architecture numbers come from each model's official config.</p>
+        <ul>
+        <li><strong>Llama 3.1 8B</strong> (32 layers, 8 KV heads, head dim 128, per <a href="https://github.com/meta-llama/llama-models/blob/main/models/sku_list.py">Meta's llama-models repository</a>): 128 KiB per token, <strong>16 GiB</strong> at 128K.</li>
+        <li><strong>Llama 3.1 70B</strong> (80 layers, 8 KV heads, head dim 128): 320 KiB per token, <strong>40 GiB</strong> at 128K.</li>
+        <li><strong>Llama 3.1 405B</strong> (126 layers, 8 KV heads, head dim 128): 504 KiB per token, <strong>63 GiB</strong> at 128K.</li>
+        <li><strong>Mistral NeMo 12B</strong> (40 layers, 8 KV heads, head dim 128, per its <a href="https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407/blob/main/config.json">Hugging Face config</a>): 160 KiB per token, <strong>20 GiB</strong> at 128K.</li>
+        <li><strong>Phi-3-mini-128k</strong> (32 layers, 32 KV heads, head dim 96, per its <a href="https://huggingface.co/microsoft/Phi-3-mini-128k-instruct/blob/main/config.json">Hugging Face config</a>): 384 KiB per token, <strong>48 GiB</strong> at 128K.</li>
+        </ul>
+        <p>The Phi-3 line is the surprise. It is a 3.8B-parameter model whose BF16 weights take roughly 7.6 GB. Because it uses full multi-head attention, its 128K cache is about six times larger than its weights. Llama 3.1 8B is a bigger model with a cache one third the size.</p>
+        <p>These numbers cover the cache only. Add the model weights, activations, and framework overhead. Serving engines also reserve memory in advance, so real usage runs higher than the raw formula.</p>
+
+        <h2>Why do KV heads matter more than parameter count?</h2>
+        <p>The cache scales with KV heads, not query heads. The <a href="https://arxiv.org/abs/2305.13245">GQA paper</a> (Ainslie et al., 2023) introduced grouped-query attention, where several query heads share one key-value head. It sits between full multi-head attention and multi-query attention, which uses a single KV head. The authors report quality close to multi-head attention at speed comparable to multi-query attention.</p>
+        <p>Llama 3.1 8B has 32 query heads but only 8 KV heads. If it used 32 KV heads, its 128K cache would be 64 GiB instead of 16 GiB. That 4x saving is why nearly every recent open model ships with GQA.</p>
+        <p><a href="https://arxiv.org/abs/2405.04434">DeepSeek-V2</a> goes further with Multi-head Latent Attention (MLA), which compresses keys and values into a latent vector. The paper reports a 93.3% smaller KV cache than DeepSeek 67B, and a 128K context length.</p>
+
+        <h2>How much does quantizing the KV cache save?</h2>
+        <p>Bytes per value is the easiest term to change. An FP8 cache halves every figure above, so Llama 3.1 8B at 128K drops from 16 GiB to 8 GiB. Most serving engines expose this as a setting.</p>
+        <p>Research pushes lower. <a href="https://arxiv.org/abs/2402.02750">KIVI</a> (Liu et al., 2024) quantizes the cache to 2 bits: keys per channel, values per token. The authors report that Llama, Falcon, and Mistral models keep almost the same quality with 2.6x less peak memory, including weights. That enabled up to 4x larger batches and 2.35x to 3.47x higher throughput. At a pure 2 bits per value, the Llama 3.1 8B cache at 128K would be about 2 GiB before quantization metadata.</p>
+
+        <h2>Why does batch size change the answer?</h2>
+        <p>The formula is per sequence. Eight concurrent 128K requests to Llama 3.1 70B need 320 GiB of BF16 cache, which is more than four 80 GB GPUs hold before any weights load. The PagedAttention paper frames serving throughput as memory-bound for this reason. vLLM's paged allocation reduces waste from fragmentation, and the authors report 2x to 4x throughput gains over earlier systems. It cannot shrink the cache a request actually uses.</p>
+        <p>This is also why long prompts are expensive even when the model accepts them. Every token you keep in context holds memory for the life of the request. <a href="does-prompt-caching-cut-rlm-sub-call-costs.html">Prompt caching</a> can reuse a shared prefix across requests, but the prefix still occupies cache while in use.</p>
+
+        <h2>How do RLMs change the memory math?</h2>
+        <p>A <a href="https://arxiv.org/abs/2512.24601">Recursive Language Model</a> (Zhang, Kraska, and Khattab) treats a long prompt as part of an external environment. The model examines and decomposes the prompt in code, then calls itself recursively over snippets. The paper reports that RLMs process inputs up to two orders of magnitude beyond the model's context window.</p>
+        <p>In memory terms, the full document lives in the REPL as ordinary data, not in the KV cache. Each root or sub-call holds only its own working context. A 10-million-token corpus never needs a 10-million-token cache. Peak VRAM depends on the largest single call, plus how many sub-calls run at once. For that reason RLMs pair well with <a href="small-models-big-contexts-rlm-efficiency.html">small models on long inputs</a>. The tradeoff is more calls and more latency, which <a href="are-rlms-slower-than-a-single-long-context-call.html">we cover separately</a>.</p>
+
+        <h2>The bottom line</h2>
+        <p>Use 2 × layers × KV heads × head dim × bytes × tokens, with the numbers from the model's config. At BF16 and 131,072 tokens, expect about 16 GiB for Llama 3.1 8B, 20 GiB for Mistral NeMo 12B, and 40 GiB for Llama 3.1 70B, per sequence. Check the KV head count first: a small model without GQA can need more cache than a much larger one with it. FP8 halves the bill, and 2-bit methods such as KIVI go further.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Kwon, W., et al. "Efficient Memory Management for Large Language Model Serving with PagedAttention." SOSP 2023, arXiv:2309.06180. Source of the 800 KB per token OPT-13B worked example and the memory-bound serving argument. <a href="https://arxiv.org/abs/2309.06180">arxiv.org/abs/2309.06180</a></li>
+            <li>Ainslie, J., et al. "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints." arXiv:2305.13245, May 2023. Defines grouped-query attention. <a href="https://arxiv.org/abs/2305.13245">arxiv.org/abs/2305.13245</a></li>
+            <li>DeepSeek-AI. "DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model." arXiv:2405.04434, May 2024. Reports a 93.3% smaller KV cache with Multi-head Latent Attention. <a href="https://arxiv.org/abs/2405.04434">arxiv.org/abs/2405.04434</a></li>
+            <li>Liu, Z., et al. "KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache." arXiv:2402.02750, February 2024. Reports 2.6x less peak memory and 2.35x to 3.47x throughput. <a href="https://arxiv.org/abs/2402.02750">arxiv.org/abs/2402.02750</a></li>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, December 2025. Treats long prompts as an external environment and processes inputs far beyond the context window. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Meta. llama-models repository, models/sku_list.py. Architecture arguments for Llama 3.1 8B, 70B and 405B (layers, heads, KV heads). <a href="https://github.com/meta-llama/llama-models/blob/main/models/sku_list.py">github.com/meta-llama/llama-models/blob/main/models/sku_list.py</a></li>
+            <li>Mistral AI. Mistral-Nemo-Instruct-2407 config.json on Hugging Face. Layers, KV heads, head dimension and 131,072 max positions. <a href="https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407/blob/main/config.json">huggingface.co/mistralai/Mistral-Nemo-Instruct-2407/blob/main/config.json</a></li>
+            <li>Microsoft. Phi-3-mini-128k-instruct config.json on Hugging Face. 32 layers with 32 KV heads (no GQA) and 131,072 max positions. <a href="https://huggingface.co/microsoft/Phi-3-mini-128k-instruct/blob/main/config.json">huggingface.co/microsoft/Phi-3-mini-128k-instruct/blob/main/config.json</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is 128K context 128,000 or 131,072 tokens?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Model configs such as Llama 3.1 and Mistral NeMo set max_position_embeddings to 131,072, which is 128 x 1,024. At exactly 128,000 tokens the cache is about 2% smaller. For Llama 3.1 8B that is about 15.6 GiB instead of 16 GiB.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does the KV cache include the prompt or only generated tokens?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Both. Every token in the sequence, prompt and output, adds keys and values in every layer. A 120K-token prompt with an 8K-token answer fills the same cache as a 128K sequence.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why is my real VRAM use higher than the formula?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The formula covers the cache only. Model weights, activations, CUDA context and the serving engine&#x27;s pre-allocated memory all add to it. Engines such as vLLM reserve a fraction of GPU memory up front for the cache.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does FP8 KV cache hurt quality?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It depends on the model and the engine&#x27;s scaling method, so test it on your own tasks. Research on 2-bit caches such as KIVI reports almost the same quality on Llama, Falcon and Mistral models, which suggests 8-bit usually has headroom. Measure before relying on it for accuracy-critical work.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do RLMs avoid the KV cache entirely?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Every root call and sub-call still uses a KV cache for its own context. The difference is that the full input sits in the REPL as data, so no single call has to hold the whole document in cache.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
