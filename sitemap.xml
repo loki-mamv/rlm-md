@@ -22,6 +22,7 @@
   <url><loc>https://rlm.md/blog/inference-time-compute-scaling.html</loc><lastmod>2026-02-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/kv-cache-vram-for-128k-context.html</loc><lastmod>2026-09-30</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/lcm-lossless-context-management-voltropy.html</loc><lastmod>2026-02-18</lastmod><priority>0.7</priority></url>
+  <url><loc>https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html</loc><lastmod>2026-10-03</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/real-world-applications-recursive-language-models.html</loc><lastmod>2026-02-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/rlm-limitations-failure-modes.html</loc><lastmod>2026-08-22</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/rlm-vs-coding-agent-with-repl.html</loc><lastmod>2026-09-06</lastmod><priority>0.7</priority></url>

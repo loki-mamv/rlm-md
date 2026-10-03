@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Is There a Public Dataset of RLM Trajectories for Fine-Tuning? | rlm.md</title>
+    <meta name="description" content="No official RLM trajectory dataset exists. The authors released code, weights and a benchmark. Here is what is public and how to generate your own data.">
+    <meta name="keywords" content="RLM trajectories dataset, recursive language model fine-tuning, RLM-Qwen3-8B training data, RLMLogger, LongBenchPro, prime-rl, verifiers environment, RLM distillation, Hugging Face RLM dataset">
+    <link rel="canonical" href="https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html">
+    <meta property="og:title" content="Is There a Public Dataset of RLM Trajectories for Fine-Tuning?">
+    <meta property="og:description" content="The RLM authors released code, two sets of weights and a benchmark, but not their training trajectories. What is public, what the community uploads are worth, and how to build your own set.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Is There a Public Dataset of RLM Trajectories for Fine-Tuning?">
+    <meta name="twitter:description" content="No official RLM trajectory dataset exists: what is public, and the paper&#x27;s recipe for generating your own.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM trajectories dataset, recursive language model fine-tuning, RLM-Qwen3-8B training data, RLMLogger, LongBenchPro, prime-rl, verifiers environment, RLM distillation, Hugging Face RLM dataset">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html#article",
+      "headline": "Is There a Public Dataset of RLM Trajectories for Fine-Tuning?",
+      "description": "No official RLM trajectory dataset exists. The authors released code, weights and a benchmark. Here is what is public and how to generate your own data.",
+      "url": "https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html",
+      "datePublished": "2026-10-03",
+      "dateModified": "2026-10-03",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/public-dataset-of-rlm-trajectories-for-fine-tuning.html#article"
+      },
+      "wordCount": "1374"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Did the RLM authors release the trajectories used to train RLM-Qwen3-8B?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The model weights are on Hugging Face at mit-oasys/rlm-qwen3-8b-v0.1, and the model card says only that the model was trained on trajectories produced using a fixed system prompt. The card links no dataset, and the only dataset under the mit-oasys organization is the OOLONG-Pairs benchmark. The paper's Appendix A describes how the trajectories were collected and filtered."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many trajectories does it take to fine-tune a small model as an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The paper's result used about 1,000. The authors collected 2,250 candidate trajectories from 750 English LongBenchPro tasks and kept 1,072 after removing zero-score and single-turn runs. Each root turn then became a separate training sample, so the number of samples is larger than the number of trajectories. The authors say much larger scale will be needed to get the most from RLM training."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What license do the released RLM models use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The RLM-Qwen3-8B model card on Hugging Face carries an MIT license tag. The RLM Qwen3-30B-A3B adapter card carries an Apache-2.0 tag and is a LoRA adapter, so it also needs the base Qwen3-30B-A3B-Instruct-2507 model. Check each card and the base model's license before commercial use."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use the reference RLM library's logs as training data?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, after processing. Passing RLMLogger with a log_dir makes each completion write a JSONL file, and the completion metadata holds the full trajectory with all iterations and sub-calls. You still need to score each run, reject failures, split by root turn, and patch template mistakes before the logs are usable for supervised fine-tuning."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the 12-row HotCopy dataset enough to fine-tune an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Its own card describes it as a synthetic seed corpus of hand-crafted trajectories and says it is not suitable for benchmarking or for cost estimates. The generated code is JavaScript for a different harness, so it does not match the Python REPL protocol of the reference library. It is useful as a reading example of the trajectory shape."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Is There a Public Dataset of RLM Trajectories for Fine-Tuning?</h1>
+        <p class="lead">The paper trained an 8B model on about 1,000 trajectories, and people want that file. It is not public. The weights, the logger and the recipe are.</p>
+    </div>
+
+    <div class="blog-meta">October 3, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> No official one. As of October 2026 the RLM authors have published the code, two sets of model weights and a benchmark, but not the trajectories they trained on. Hugging Face holds a few small community uploads, and none of them is a documented, licensed copy of the paper's training set. The practical route is to generate your own trajectories with the reference library's logger, and the paper gives the recipe.</p>
+
+        <h2>What did the RLM authors actually release?</h2>
+        <p>Four things are public, and none of them is a trajectory corpus.</p>
+        <ul>
+            <li><strong>The inference and training code.</strong> The <a href="https://github.com/alexzhang13/rlm">alexzhang13/rlm repository</a> describes itself as "both an extensible inference engine and training environment". It includes a logger, a trajectory visualizer and a <code>training/</code> folder.</li>
+            <li><strong>RLM-Qwen3-8B weights.</strong> The <a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1">mit-oasys/rlm-qwen3-8b-v0.1</a> model card carries an MIT license tag. Its full description of the training data is one sentence: "The model was trained on trajectories produced using a fixed system prompt." It links no dataset.</li>
+            <li><strong>A LoRA adapter for a larger model.</strong> <a href="https://huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1">mit-oasys/rlm-qwen3-30b-a3b-v0.1</a> is an Apache-2.0 adapter of about 51 MB for Qwen3-30B-A3B-Instruct-2507, "trained as a Recursive Language Model policy on a mixed long-context environment suite using RL".</li>
+            <li><strong>A benchmark.</strong> The only dataset under the mit-oasys organization is <a href="https://huggingface.co/datasets/mit-oasys/oolong-pairs">oolong-pairs</a>. It holds 20 question templates with ground-truth answers at 11 context lengths. It is evaluation data, and its card warns that it does not even contain the context text.</li>
+        </ul>
+        <p>The alexzhang13 account lists no datasets on Hugging Face. So the weights that came out of the trajectories are public, and the trajectories are not.</p>
+
+        <h2>What does the paper say about the trajectories it trained on?</h2>
+        <p>Enough to rebuild them. Appendix A of <a href="https://arxiv.org/abs/2512.24601">the RLM paper</a> lays out the pipeline behind RLM-Qwen3-8B:</p>
+        <ul>
+            <li>The teacher was Qwen3-Coder-480B-A35B running as an RLM, with Qwen3-8B answering the sub-calls.</li>
+            <li>The tasks were 750 English LongBenchPro tasks, which produced 2,250 candidate trajectories.</li>
+            <li>Trajectories that scored exactly 0.0, or that never went past one turn, were removed. That left 1,072.</li>
+            <li>Each root turn became its own supervised sample: the input is the full history, the output is what the root model wrote at that step.</li>
+            <li>Turns longer than about 100k characters were dropped to fit the Qwen3-8B context limit.</li>
+            <li>Training ran in the prime-rl library at batch size 64 for 300 steps, which took 48 H100 hours.</li>
+        </ul>
+        <p>The main text rounds the corpus to "1,000 filtered trajectories". The abstract reports that the resulting model beats base Qwen3-8B by 28.3% on average. The appendix gives no download link for the data. It does state the idea that makes the corpus small: leaf sub-calls are ordinary LLM requests, so only the root model's behavior needs teaching. The <a href="small-models-big-contexts-rlm-efficiency.html">small-model efficiency post</a> covers what that training bought.</p>
+
+        <h2>Are there community RLM trajectory datasets on Hugging Face?</h2>
+        <p>A few, and each comes with a limit you should know before you train on it.</p>
+        <p><a href="https://huggingface.co/datasets/HotCopyAI/rlm-trajectories-seed">HotCopyAI/rlm-trajectories-seed</a> is the best documented. It is Apache-2.0 and its card calls it "a 12-row seed corpus of synthetic Recursive Language Model trajectories". The rows are hand-crafted, the generated code is JavaScript for the vendor's own CLI, and the card says the token and cost figures are illustrative. Twelve synthetic rows in a different harness will not train a root model for the Python reference library.</p>
+        <p>Two uploads from one Hugging Face user, dated February 2026, look like an attempt to repeat the paper's recipe. <a href="https://huggingface.co/datasets/ShayanShamsi/rlm-longbenchpro-raw">rlm-longbenchpro-raw</a> has 512 rows with question, response, execution time and token usage for Qwen/Qwen3-Coder-Next. <a href="https://huggingface.co/datasets/ShayanShamsi/rlm-longbenchpro-sft-filtered">rlm-longbenchpro-sft-filtered</a> has 2,760 prompt and completion pairs. Neither has a written dataset card, and neither declares a license. Nothing on the pages says how the runs were filtered or which system prompt produced them. Treat them as something to inspect, not something to ship a model on.</p>
+        <p>The <a href="https://arxiv.org/abs/2603.02615">reproduction study</a> says "code and data are available", and that is true for evaluation. <a href="https://github.com/drbillwang/rlm-reproduction">Its repository</a> stores per-condition result files in JSON and CSV for DeepSeek v3.2 and Kimi K2 on S-NIAH and OOLONG. Those files record how each run scored. They are not a training corpus.</p>
+
+        <h2>How do you generate your own RLM trajectories?</h2>
+        <p>The reference library already records everything a training set needs. Follow the paper's pipeline in six steps.</p>
+        <ol>
+            <li><strong>Pick tasks with a scorer.</strong> You need a number for each run so you can reject bad ones. The paper used LongBenchPro. Any long-context task set with ground truth works.</li>
+            <li><strong>Pick a teacher.</strong> Use a model stronger than the student. The <a href="what-base-model-do-you-need-for-an-rlm.html">base model requirements</a> apply to the teacher first.</li>
+            <li><strong>Turn on the logger.</strong> Pass <code>logger=RLMLogger(log_dir="./logs")</code> to <code>RLM</code>. Each completion then writes a <code>.jsonl</code> file. The README says the completion's <code>metadata</code> field "holds the full trajectory (run config + all iterations and sub-calls)".</li>
+            <li><strong>Reject failures.</strong> Drop runs that score zero and runs that end in one turn.</li>
+            <li><strong>Split by root turn.</strong> Write one sample for each iteration, with the history as input and the root output as target. Drop samples that exceed the student's context limit.</li>
+            <li><strong>Patch the template mistakes.</strong> This step is easy to skip and the paper says it mattered. In the teacher's output, 16% of turns misused <code>FINAL</code> and 13% wrongly returned a REPL variable through <code>FINAL_VAR</code>. A programmatic fix for those patterns led to "much better performance" in the student.</li>
+        </ol>
+        <p>Hold out an evaluation set before you start, and score the student on tasks the teacher never saw. The <a href="how-to-evaluate-a-recursive-language-model.html">evaluation guide</a> lists the ablations to run. The paper's own test was strict on this point: it trained on LongBenchPro and measured on four unrelated benchmarks.</p>
+
+        <h2>Do you need a trajectory dataset at all?</h2>
+        <p>Not if you train with reinforcement learning. The repository's <code>training/</code> folder exposes <code>rlm.RLM</code> as a verifiers environment that plugs into prime-rl. The trainer produces its own rollouts and scores them against a reward, so no teacher corpus exists at any point. The repository ships an OOLONG example environment and a config named <code>rlm-qwen3-30b-example.toml</code>. The published 30B adapter came from this path.</p>
+        <p>The paper used the same approach for a second experiment. It RL-trained a Qwen3-4B model on the MRCRv2 split with 32k to 64k tokens and 2 needles, for 150 steps at batch size 128 with 4 rollouts per example. The trained RLM then generalized to the split with 512K to 1M tokens and 8 needles.</p>
+        <p>The authors point the same way for future work. They expect that larger scale and "ideally on-policy and online" rollouts will be necessary to get the most from RLM training. A static trajectory file is the cheap first step. RL is where the authors expect the gains.</p>
+
+        <h2>Why can't you reuse trajectories from another harness?</h2>
+        <p>Because a trajectory encodes its scaffold. The RLM-Qwen3-8B card says the model "assumes the environment/scaffold from our RLM repo". The 30B adapter card says the same thing more bluntly: it is "not a drop-in chat model" and "expects the RLM system prompt and REPL scaffolding".</p>
+        <p>Three things are baked into every sample: the system prompt, the names of the sub-call functions, and the final-answer convention. Change any of them and the student learns a protocol your runtime does not speak. The paper met this problem inside one harness. The prompt written for GPT-5 led to "different, undesirable behavior" in Qwen3-Coder until the authors added a sentence. The fine-tuned 8B model also needed a slightly different prompt because its window is 32k, not 272k.</p>
+        <p>So collect trajectories in the exact harness you will deploy, with the exact prompt. Data from a JavaScript CLI or from another library's RLM module does not transfer.</p>
+
+        <h2>The bottom line</h2>
+        <p>There is no official public dataset of RLM trajectories. The authors released code, an 8B model, a 30B LoRA adapter and a benchmark. The community uploads are either tiny and synthetic or undocumented and unlicensed. The gap is smaller than it looks: about 1,000 filtered trajectories were enough for the paper's result, the logger that captures them is in the repository, and the filtering recipe is in Appendix A. Generate the data in your own harness, patch the template mistakes, and test on tasks the teacher never saw.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, v3, May 2026. Abstract, fine-tuning setup, Appendix A training details (750 LongBenchPro tasks, 2,250 candidates, 1,072 after filtering, FINAL and FINAL_VAR error rates, 48 H100 hours), MRCRv2 RL training, Appendix B prompt notes. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L. et al. "rlm: Recursive Language Models." GitHub repository README and training README, accessed October 2026. RLMLogger and trajectory metadata, visualizer, verifiers and prime-rl training harness, OOLONG example environment. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>MIT OASYS. "RLM-Qwen3-8B-v0.1." Hugging Face model card, accessed October 2026. MIT license tag, statement that the model was trained on trajectories produced using a fixed system prompt and assumes the RLM repo scaffold. <a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1">huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1</a></li>
+            <li>MIT OASYS. "RLM Qwen3-30B-A3B v0.1." Hugging Face model card, accessed October 2026. Apache-2.0 LoRA adapter trained with RL on a mixed long-context environment suite; not a drop-in chat model. <a href="https://huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1">huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1</a></li>
+            <li>MIT OASYS. "Oolong-Pairs." Hugging Face dataset card, accessed October 2026. Benchmark of 20 question templates at 11 context lengths; the only dataset under the organization. <a href="https://huggingface.co/datasets/mit-oasys/oolong-pairs">huggingface.co/datasets/mit-oasys/oolong-pairs</a></li>
+            <li>HotCopy. "HotCopy RLM Trajectories (Seed)." Hugging Face dataset card, 2026. Apache-2.0, 12-row synthetic seed corpus, schema and stated limits. <a href="https://huggingface.co/datasets/HotCopyAI/rlm-trajectories-seed">huggingface.co/datasets/HotCopyAI/rlm-trajectories-seed</a></li>
+            <li>Shamsi, S. "rlm-longbenchpro-sft-filtered" and "rlm-longbenchpro-raw." Hugging Face datasets, February 2026. Community uploads with 2,760 and 512 rows; no written card and no declared license. <a href="https://huggingface.co/datasets/ShayanShamsi/rlm-longbenchpro-sft-filtered">huggingface.co/datasets/ShayanShamsi/rlm-longbenchpro-sft-filtered</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, 2026. Reproduction with DeepSeek v3.2 and Kimi K2; released code and evaluation result files. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Did the RLM authors release the trajectories used to train RLM-Qwen3-8B?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The model weights are on Hugging Face at mit-oasys/rlm-qwen3-8b-v0.1, and the model card says only that the model was trained on trajectories produced using a fixed system prompt. The card links no dataset, and the only dataset under the mit-oasys organization is the OOLONG-Pairs benchmark. The paper&#x27;s Appendix A describes how the trajectories were collected and filtered.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How many trajectories does it take to fine-tune a small model as an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The paper&#x27;s result used about 1,000. The authors collected 2,250 candidate trajectories from 750 English LongBenchPro tasks and kept 1,072 after removing zero-score and single-turn runs. Each root turn then became a separate training sample, so the number of samples is larger than the number of trajectories. The authors say much larger scale will be needed to get the most from RLM training.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What license do the released RLM models use?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The RLM-Qwen3-8B model card on Hugging Face carries an MIT license tag. The RLM Qwen3-30B-A3B adapter card carries an Apache-2.0 tag and is a LoRA adapter, so it also needs the base Qwen3-30B-A3B-Instruct-2507 model. Check each card and the base model&#x27;s license before commercial use.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I use the reference RLM library&#x27;s logs as training data?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, after processing. Passing RLMLogger with a log_dir makes each completion write a JSONL file, and the completion metadata holds the full trajectory with all iterations and sub-calls. You still need to score each run, reject failures, split by root turn, and patch template mistakes before the logs are usable for supervised fine-tuning.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is the 12-row HotCopy dataset enough to fine-tune an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Its own card describes it as a synthetic seed corpus of hand-crafted trajectories and says it is not suitable for benchmarking or for cost estimates. The generated code is JavaScript for a different harness, so it does not match the Python REPL protocol of the reference library. It is useful as a reading example of the trajectory shape.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
