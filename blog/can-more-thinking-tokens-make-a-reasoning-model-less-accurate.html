@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can More Thinking Tokens Make a Reasoning Model Less Accurate? | rlm.md</title>
+    <meta name="description" content="Yes. Studies show accuracy follows an inverted U against reasoning length. Past the peak, more thinking tokens hurt, and RLM recursion depth acts the same.">
+    <meta name="keywords" content="thinking tokens, thinking budget, overthinking, reasoning models, inverse scaling test-time compute, chain-of-thought length, reasoning effort, RLM recursion depth, sub-call budget, extended thinking, adaptive thinking">
+    <link rel="canonical" href="https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html">
+    <meta property="og:title" content="Can More Thinking Tokens Make a Reasoning Model Less Accurate?">
+    <meta property="og:description" content="Accuracy rises with reasoning length, peaks, then falls. Here is the evidence from six papers, what vendor docs say about thinking budgets, and what it means for RLM sub-call and depth settings.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Can More Thinking Tokens Make a Reasoning Model Less Accurate?">
+    <meta name="twitter:description" content="More thinking tokens can lower accuracy: the inverted-U evidence and what it means for RLM thinking budgets and recursion depth.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="thinking tokens, thinking budget, overthinking, reasoning models, inverse scaling test-time compute, chain-of-thought length, reasoning effort, RLM recursion depth, sub-call budget, extended thinking, adaptive thinking">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html#article",
+      "headline": "Can More Thinking Tokens Make a Reasoning Model Less Accurate?",
+      "description": "Yes. Studies show accuracy follows an inverted U against reasoning length. Past the peak, more thinking tokens hurt, and RLM recursion depth acts the same.",
+      "url": "https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html",
+      "datePublished": "2026-10-05",
+      "dateModified": "2026-10-05",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html#article"
+      },
+      "wordCount": "1402"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is overthinking in a reasoning model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Overthinking is reasoning that continues past the point where it helps. Ghosal et al. observed initial gains from additional thinking followed by a decline. Cuadron et al. use the term for agents that favor long internal reasoning over interaction with the environment."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there one optimal number of thinking tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Wu et al. found that the optimal chain-of-thought length increases with task difficulty and decreases with model capability. You have to find the peak for each task type and each model with an evaluation sweep."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it better to run several short reasoning attempts than one long attempt?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Two 2025 papers say it often is. Ghosal et al. report up to 20% higher accuracy from parallel thinking with a majority vote, compared with extended thinking at the same budget. Hassid et al. report that preferring the shortest chains matched or beat standard majority voting with up to 40% fewer thinking tokens in low-compute settings."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a high thinking budget force the model to think for that long?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Anthropic's documentation says the budget is a target, not a strict cap, and that the model may stop reasoning well before the budget is exhausted. Newer Claude models replace the fixed budget with adaptive thinking and an effort setting."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does deeper recursion in an RLM count as more thinking?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In practice, yes. Each added depth level lets the system spend more compute on the same question. The Wang reproduction found that depth 2 degraded performance on open models and raised execution time from 3.6 seconds to 344.5 seconds in one example."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Can More Thinking Tokens Make a Reasoning Model Less Accurate?</h1>
+        <p class="lead">Longer reasoning helps up to a point. Six studies and one RLM reproduction show where the curve turns down, and how to set thinking and recursion budgets with that in mind.</p>
+    </div>
+
+    <div class="blog-meta">October 5, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> yes. Several 2025 studies measured accuracy against reasoning length and found a curve that rises, peaks, then falls. Past the peak, extra thinking tokens add distraction, variance, and second-guessing. The same pattern shows up in RLMs as recursion depth: one level of sub-calls helps, and a second level can cut accuracy while it multiplies latency.</p>
+
+        <h2>What does the evidence say about longer reasoning?</h2>
+
+        <p>The clearest statement comes from <a href="https://arxiv.org/abs/2502.07266">Wu et al.</a>, who studied chain-of-thought length directly. Their abstract reports that "task accuracy typically follows an inverted U-shaped curve with CoT length, where performance initially improves but eventually decreases as the number of CoT steps increases." The peak is not fixed. The optimal length "increases with task difficulty but decreases with model capability." A stronger model needs fewer steps on the same problem.</p>
+
+        <p><a href="https://arxiv.org/abs/2505.17813">Hassid et al.</a> looked at the same question inside a single prompt. They sampled several thinking chains for each question and compared them by length. Shorter chains were "up to 34.5% more accurate than the longest chain sampled for the same question." That is a within-question comparison, so task difficulty does not explain it. When the same model thinks longer on the same problem, the long attempt is more often the wrong one.</p>
+
+        <p><a href="https://arxiv.org/abs/2506.04210">Ghosal et al.</a> forced the issue. They extended thinking traces with prompts like "Wait" and "Let me rethink" and reported "a consistent pattern of initial performance improvements from additional thinking followed by a decline, due to 'overthinking'." Their explanation is that additional thinking increases output variance. The early gains look like better reasoning, but part of that gain is an artifact of how uncertainty interacts with the metric.</p>
+
+        <h2>Which tasks get worse with a bigger thinking budget?</h2>
+
+        <p>An Anthropic-led team built tasks to find out. In <a href="https://arxiv.org/abs/2507.14417">"Inverse Scaling in Test-Time Compute"</a>, Gema et al. constructed evaluations "where extending the reasoning length of Large Reasoning Models (LRMs) deteriorates performance." The tasks span four categories:</p>
+
+        <ul>
+            <li>simple counting tasks with distractors</li>
+            <li>regression tasks with spurious features</li>
+            <li>deduction tasks with constraint tracking</li>
+            <li>advanced AI risks</li>
+        </ul>
+
+        <p>The failure modes differ by model family. The abstract says Claude models "become increasingly distracted by irrelevant information," while OpenAI o-series models "resist distractors but overfit to problem framings." On the regression tasks, models "shift from reasonable priors to spurious correlations." On the deduction tasks, "all models show difficulties in maintaining focus."</p>
+
+        <p>Read those four lines together and a rule appears. Longer reasoning hurts most when the prompt contains something tempting and irrelevant. More tokens give the model more chances to pick it up. The authors do not reject test-time compute. They call it "promising" and ask that models be evaluated "across diverse reasoning lengths."</p>
+
+        <p>Apple's <a href="https://arxiv.org/abs/2506.06941">"The Illusion of Thinking"</a> adds a second regime. Shojaee et al. compared reasoning models with their standard counterparts under the same inference compute. On low-complexity tasks, "standard models outperform LRMs." On medium-complexity tasks, the reasoning models win. On high-complexity tasks, both collapse. They also saw that reasoning effort "increases with problem complexity up to a point, then declines despite having remaining token budget." A large budget does not mean the model uses it well.</p>
+
+        <h2>Does overthinking also hurt agents?</h2>
+
+        <p>Yes, and the cost is larger because an agent can act on a bad plan. <a href="https://arxiv.org/abs/2502.08235">Cuadron et al.</a> analyzed 4018 trajectories on SWE Bench Verified. They define overthinking as a model that favors "extended internal reasoning chains over environmental interaction," and they name three patterns: Analysis Paralysis, Rogue Actions, and Premature Disengagement.</p>
+
+        <p>Their headline result: "higher overthinking scores correlate with decreased performance," and reasoning models overthink more than non-reasoning models. A simple fix worked. Selecting the solution with the lower overthinking score improved performance "by almost 30% while reducing computational costs by 43%."</p>
+
+        <p>This matters for RLMs because an RLM root is an agent in a REPL. A root that reasons at length about what the context probably contains, without running code to check, shows the same pattern. The fix is the same: run the code, then reason about the result.</p>
+
+        <h2>What do the vendor docs say about thinking budgets?</h2>
+
+        <p>Vendor guidance is more careful than "more is better," but it stops short of the papers. Anthropic's <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">extended thinking documentation</a> says "larger budgets can improve response quality by enabling more thorough analysis for complex problems." It then tells you to start low: "For simple tasks, start near the 1,024-token minimum and increase incrementally to find the optimal range for your use case." For complex tasks it suggests 16,000 tokens or more, "with diminishing returns that depend on the task."</p>
+
+        <p>Two details on that page are easy to miss. The budget "is a target rather than a strict cap," so a high number does not force a long trace. And the fixed budget is on its way out. The page states that <code>budget_tokens</code> is deprecated on the Claude 4.6 models and rejected by Claude 4.7 and later, which use adaptive thinking with an <code>effort</code> setting. The model then decides how much to think on each request.</p>
+
+        <p>The docs describe diminishing returns. The papers describe negative returns on specific task types. Both can be true. The practical reading is the same: treat thinking as a setting you tune per task, and measure it.</p>
+
+        <h2>How does this show up in RLM recursion depth?</h2>
+
+        <p>Recursion depth is the RLM version of a thinking budget. The <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> defines it this way: "Max recursion depth 0 is an RLM without sub-calling capabilities. Max recursion depth 1 allows sub-calling LLMs, while max depth &gt;1 allows sub-calling RLMs." Each level lets the system spend more compute on the same question.</p>
+
+        <p>The reproduction by <a href="https://arxiv.org/abs/2603.02615">Wang</a> tested what the extra level buys on open models (DeepSeek v3.2 and Kimi K2). The title gives the answer: "Think, But Don't Overthink." Depth 1 improved accuracy on complex reasoning tasks. But "applying deeper recursion (depth=2) or using RLMs on simple retrieval tasks paradoxically degrades performance and exponentially inflates execution time (e.g., from 3.6s to 344.5s) and token costs."</p>
+
+        <p>That is the inverted U again, with depth on the horizontal axis. It also matches the Apple result: on a simple task, the plain model beats the system that thinks more. Our post on <a href="how-deep-should-an-rlm-recurse.html">how deep an RLM should recurse</a> walks through the depth numbers task by task.</p>
+
+        <h2>How should you set thinking and sub-call budgets in an RLM?</h2>
+
+        <p>The research points to five rules.</p>
+
+        <ol>
+            <li><strong>Start low and sweep.</strong> Run your evaluation set at several thinking levels and several depths. Keep the lowest setting that reaches peak accuracy. Our guide on <a href="how-to-evaluate-a-recursive-language-model.html">how to evaluate an RLM</a> covers the setup.</li>
+            <li><strong>Give sub-calls less thinking than the root.</strong> A sub-call usually does a narrow job on one snippet: extract, classify, or count. Those are the low-complexity tasks where long reasoning helps least. This is an inference from the studies above, so test it on your workload.</li>
+            <li><strong>Remove distractors before the model sees them.</strong> Gema et al. found that distraction grows with reasoning length. An RLM can filter with code first, so each sub-call gets a short, relevant snippet.</li>
+            <li><strong>Spend extra budget in parallel.</strong> Ghosal et al. generated independent reasoning paths within the same budget and took a majority vote, "achieving up to 20% higher accuracy compared to extended thinking." Hassid et al. report that their short-1@k method matched or beat majority voting in low-compute settings while "using up to 40% fewer thinking tokens." An RLM fan-out already has this shape.</li>
+            <li><strong>Cap depth at 1 unless a test says otherwise.</strong> Depth 1 is the default in the RLM paper. Raise it only when your own numbers show a gain.</li>
+        </ol>
+
+        <h2>The bottom line</h2>
+
+        <p>More thinking tokens can make a reasoning model less accurate. The evidence is consistent across chain-of-thought length, forced extended thinking, agent trajectories, and RLM recursion depth. Accuracy rises with reasoning up to a peak that depends on the task and the model, then it falls. Simple tasks and prompts with distractors reach that peak early.</p>
+
+        <p>For RLM builders, the lesson is to treat thinking effort and recursion depth as tuned settings. Sweep them, keep the smallest value that holds accuracy, and spend spare compute on parallel short calls. For the wider case for test-time compute, see <a href="inference-time-compute-scaling.html">inference-time compute scaling</a>.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Gema AP, Hagele A, Chen R, et al. "Inverse Scaling in Test-Time Compute." arXiv:2507.14417, July 2025; published in TMLR, December 2025. Tasks where longer reasoning lowers accuracy, and five failure modes by model family. <a href="https://arxiv.org/abs/2507.14417">arxiv.org/abs/2507.14417</a></li>
+            <li>Wu Y, Wang Y, Ye Z, Du T, Jegelka S, Wang Y. "When More is Less: Understanding Chain-of-Thought Length in LLMs." arXiv:2502.07266, February 2025. Inverted U-shaped accuracy curve against chain-of-thought length; optimal length scales with task difficulty and model capability. <a href="https://arxiv.org/abs/2502.07266">arxiv.org/abs/2502.07266</a></li>
+            <li>Hassid M, Synnaeve G, Adi Y, Schwartz R. "Don't Overthink it. Preferring Shorter Thinking Chains for Improved LLM Reasoning." arXiv:2505.17813, May 2025. Shorter chains up to 34.5% more accurate than the longest chain for the same question; short-m@k method. <a href="https://arxiv.org/abs/2505.17813">arxiv.org/abs/2505.17813</a></li>
+            <li>Ghosal SS, Chakraborty S, Reddy A, et al. "Does Thinking More always Help? Mirage of Test-Time Scaling in Reasoning Models." arXiv:2506.04210, June 2025; NeurIPS 2025. Gains then decline from extended thinking; parallel thinking with majority vote. <a href="https://arxiv.org/abs/2506.04210">arxiv.org/abs/2506.04210</a></li>
+            <li>Shojaee P, Mirzadeh I, Alizadeh K, Horton M, Bengio S, Farajtabar M. "The Illusion of Thinking: Understanding the Strengths and Limitations of Reasoning Models via the Lens of Problem Complexity." arXiv:2506.06941, June 2025; NeurIPS 2025. Three complexity regimes; reasoning effort declines despite remaining token budget. <a href="https://arxiv.org/abs/2506.06941">arxiv.org/abs/2506.06941</a></li>
+            <li>Cuadron A, Li D, Ma W, et al. "The Danger of Overthinking: Examining the Reasoning-Action Dilemma in Agentic Tasks." arXiv:2502.08235, February 2025. 4018 SWE Bench Verified trajectories; overthinking scores correlate with lower performance. <a href="https://arxiv.org/abs/2502.08235">arxiv.org/abs/2502.08235</a></li>
+            <li>Anthropic. "Extended thinking." Claude API documentation, accessed October 5, 2026. Budget minimum, tuning guidance, diminishing returns, deprecation of budget_tokens in favor of adaptive thinking. <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">platform.claude.com/docs/en/build-with-claude/extended-thinking</a></li>
+            <li>Zhang AL, Kraska T, Khattab O. "Recursive Language Models." arXiv:2512.24601. Definition of max recursion depth 0, 1, and greater than 1; depth 1 as the default. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth 2 degrades performance on open models and inflates execution time from 3.6s to 344.5s. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is overthinking in a reasoning model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Overthinking is reasoning that continues past the point where it helps. Ghosal et al. observed initial gains from additional thinking followed by a decline. Cuadron et al. use the term for agents that favor long internal reasoning over interaction with the environment.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is there one optimal number of thinking tokens?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Wu et al. found that the optimal chain-of-thought length increases with task difficulty and decreases with model capability. You have to find the peak for each task type and each model with an evaluation sweep.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is it better to run several short reasoning attempts than one long attempt?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Two 2025 papers say it often is. Ghosal et al. report up to 20% higher accuracy from parallel thinking with a majority vote, compared with extended thinking at the same budget. Hassid et al. report that preferring the shortest chains matched or beat standard majority voting with up to 40% fewer thinking tokens in low-compute settings.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does a high thinking budget force the model to think for that long?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Anthropic&#x27;s documentation says the budget is a target, not a strict cap, and that the model may stop reasoning well before the budget is exhausted. Newer Claude models replace the fixed budget with adaptive thinking and an effort setting.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does deeper recursion in an RLM count as more thinking?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">In practice, yes. Each added depth level lets the system spend more compute on the same question. The Wang reproduction found that depth 2 degraded performance on open models and raised execution time from 3.6 seconds to 344.5 seconds in one example.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
