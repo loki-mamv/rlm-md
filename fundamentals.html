@@ -92,7 +92,7 @@
                 <ol>
                     <li><strong>Initialize a REPL.</strong> Given an arbitrary-length prompt P, the RLM starts a persistent programming environment (Python REPL). P is stored as a string variable inside this environment. The model also gets a function for invoking sub-RLM calls.</li>
                     <li><strong>Provide metadata, not content.</strong> The root model receives only constant-size metadata about P: its length, a short prefix, how to access slices of it. The full text of P never enters the model's context window.</li>
-                    <li><strong>Model writes code.</strong> The model generates code that peeks into P, slices it, transforms it, and launches sub-RLM calls on the slices. These sub-calls are themselves full RLMs that can recurse further.</li>
+                    <li><strong>Model writes code.</strong> The model generates code that peeks into P, slices it, transforms it, and launches sub-RLM calls on the slices. How far the recursion goes depends on the maximum depth. At depth 1, the paper's default and the setting behind its headline results, each sub-call goes to a plain LLM (GPT-5-mini in the GPT-5 experiments). Above depth 1, each sub-call is a full RLM that can recurse further (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>, Section 3.2).</li>
                     <li><strong>Execute and observe.</strong> The REPL runs the code, updates state, and returns only metadata about stdout back to the model. Intermediate results live as variables in the REPL, not in the model's context.</li>
                     <li><strong>Aggregate and return.</strong> When the model sets a special "Final" variable in the REPL, iteration stops and that value becomes the response.</li>
                 </ol>
@@ -127,7 +127,7 @@ User Prompt P (e.g., 10M tokens)
 Response Y
 </pre>
         </div>
-        <p style="margin-top: 1rem; color: var(--text-dim); font-size: 0.85rem;">Each sub-RLM is itself a full RLM that can recurse further if its input is still too large. The recursion bottoms out when chunks fit comfortably in the base model's context window.</p>
+        <p style="margin-top: 1rem; color: var(--text-dim); font-size: 0.85rem;">With a maximum depth above 1, each sub-RLM is itself a full RLM that can recurse further if its input is still too large. The recursion bottoms out when chunks fit comfortably in the base model's context window.</p>
     </section>
 
     <section class="section fade-in">
@@ -166,7 +166,7 @@ Response Y
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated October 2026.</p>
 </footer>
 
 <script>
