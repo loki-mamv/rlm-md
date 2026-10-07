@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Do You Run RLM Sub-Calls in Parallel With Asyncio? | rlm.md</title>
+    <meta name="description" content="The reference RLM library already runs llm_query_batched with asyncio.gather and a semaphore of 16. Here is what it does and the pattern for your own code.">
+    <meta name="keywords" content="RLM asyncio, llm_query_batched, rlm_query_batched, parallel sub-calls, asyncio.gather, asyncio.Semaphore, recursive language models, dspy.RLM">
+    <link rel="canonical" href="https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html">
+    <meta property="og:title" content="How Do You Run RLM Sub-Calls in Parallel With Asyncio?">
+    <meta property="og:description" content="The RLM paper ran every sub-call in sequence. The current reference library does not. Here is where its asyncio code lives, what the limits are, and how to build the same pattern.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Do You Run RLM Sub-Calls in Parallel With Asyncio?">
+    <meta name="twitter:description" content="The reference RLM library already runs batched sub-calls with asyncio.gather behind a semaphore of 16.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM asyncio, llm_query_batched, rlm_query_batched, parallel sub-calls, asyncio.gather, asyncio.Semaphore, recursive language models, dspy.RLM">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html#article",
+      "headline": "How Do You Run RLM Sub-Calls in Parallel With Asyncio?",
+      "description": "The reference RLM library already runs llm_query_batched with asyncio.gather and a semaphore of 16. Here is what it does and the pattern for your own code.",
+      "url": "https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html",
+      "datePublished": "2026-10-07",
+      "dateModified": "2026-10-07",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html#article"
+      },
+      "wordCount": "1377"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is there a batched sub-call function in the reference RLM library?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The REPL exposes llm_query_batched(prompts, model=None) for plain model calls and rlm_query_batched(prompts, model=None) for recursive children. Both return a list of strings in the same order as the input prompts."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many sub-calls run at once by default?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For llm_query_batched, the LM handler uses an asyncio.Semaphore with batch_max_concurrent, which defaults to 16. For rlm_query_batched, a thread pool uses max_concurrent_subcalls, which defaults to 4. In DSPy, llm_query_batched uses a thread pool with max_workers set to 8."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I use asyncio.gather or asyncio.TaskGroup for a chunk fan-out?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Use gather with return_exceptions=True when partial results are useful. The Python docs say a TaskGroup cancels the remaining tasks the first time one task fails. The reference library uses gather so that one failed call does not abort the batch."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Did the RLM paper measure the speedup from parallel sub-calls?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The paper says all LM calls in its experiments were blocking and sequential. It says asynchronous sub-calls can potentially reduce runtime, but it reports no measured speedup."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can every RLM sub-call run in parallel?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Only independent calls can, such as the same question over separate chunks. A loop where each call needs the previous answer must stay sequential, and so must the turns of the root model."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Do You Run RLM Sub-Calls in Parallel With Asyncio?</h1>
+        <p class="lead">The RLM paper ran every sub-call one after another and called async calls future work. The current reference library ships a batched helper that uses asyncio for you.</p>
+    </div>
+
+    <div class="blog-meta">October 7, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> in the reference RLM library you do not write the asyncio code yourself. The REPL already has <code>llm_query_batched(prompts, model=None)</code>, and the library runs that batch with <code>asyncio.gather</code> behind an <code>asyncio.Semaphore</code> of 16. Recursive children go through <code>rlm_query_batched</code>, which uses a thread pool of 4 by default. You write your own asyncio fan-out only when you build your own harness, and then the pattern is a semaphore, <code>asyncio.to_thread</code> and <code>gather</code>.</p>
+
+        <p>The paper and the code disagree on this point, so it helps to read both. The sections below separate what the library documents from what you build yourself.</p>
+
+        <h2>Does the RLM paper run sub-calls in parallel?</h2>
+
+        <p>No. The <a href="https://arxiv.org/html/2512.24601">RLM paper</a> by Zhang, Kraska and Khattab says that in its experiments "all LM calls are blocking / sequential." Its limitations appendix has a heading that reads "RLMs without asynchronous LM calls are slow." The authors write that they "implemented all sub-LM queries naively as blocking / sequential calls" and that they are "confident that this can be resolved with a robust implementation."</p>
+
+        <p>The paper also names the fix as future work. It says "asynchronous sub-calls and sandboxed REPLs can potentially significantly reduce the runtime and inference cost of RLMs, but further contribute to this complexity." The paper does not report a measured speedup from parallel sub-calls, so this article does not give one.</p>
+
+        <p>The cost of sequential calls is visible in the <a href="https://arxiv.org/html/2603.02615">reproduction study</a>. It measured DeepSeek v3.2 at 3.6 seconds for a base S-NIAH query, 89.3 seconds at depth 1 and 344.5 seconds at depth 2. Our post on <a href="are-rlms-slower-than-a-single-long-context-call.html">whether RLMs are slower than a single long-context call</a> covers those numbers.</p>
+
+        <h2>What does the reference library do today?</h2>
+
+        <p>The current code is ahead of the paper. The <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/README.md">README</a> of the authors' repository lists "single LM calls (<code>llm_query</code> / <code>llm_query_batched</code>)" and "parallel batched sub-calls bounded by <code>max_concurrent_subcalls</code>." So the helper exists, and its name is <code>llm_query_batched</code>.</p>
+
+        <p>The signature in <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/environments/local_repl.py">the local REPL source</a> is <code>_llm_query_batched(self, prompts: list[str], model: str | None = None) -&gt; list[str]</code>. The REPL exposes it to the model as <code>llm_query_batched</code>. The docstring says it returns a "list of responses in the same order as input prompts."</p>
+
+        <p>The <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py">system prompt</a> teaches the root model to use it. The example in the prompt builds a list and then runs <code>answers = llm_query_batched(prompts)</code>. The prompt describes the function as "much faster than sequential <code>llm_query</code> calls for independent queries."</p>
+
+        <h2>Where is the asyncio code inside the library?</h2>
+
+        <p>It is in <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/lm_handler.py">the LM handler</a>, in a method named <code>_handle_batched</code>. The REPL sends the whole prompt list to the handler in one request. The handler then does three things, all quoted from the source:</p>
+        <ul>
+        <li>It builds a limit: <code>sem = asyncio.Semaphore(handler.batch_max_concurrent)</code>. The default for <code>batch_max_concurrent</code> is 16.</li>
+        <li>It wraps each prompt: <code>async with sem: return await client.acompletion(prompt)</code>.</li>
+        <li>It collects the results: <code>return await asyncio.gather(*tasks, return_exceptions=True)</code>, started with <code>asyncio.run(run_all())</code>.</li>
+        </ul>
+
+        <p>The comment in the code explains the last flag: "one failed call doesn't abort the whole batch; failures are surfaced per-prompt as error completions." That matches the <a href="https://docs.python.org/3/library/asyncio-task.html">Python documentation for gather</a>. With <code>return_exceptions=True</code>, "exceptions are treated the same as successful results, and aggregated in the result list." The same page says the order of results "corresponds to the order of awaitables," which is why chunk 3 always lands in slot 3.</p>
+
+        <p>One detail limits your control. In <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py">rlm/core/rlm.py</a>, the handler is built as <code>LMHandler(client, other_backend_client=other_backend_client)</code>. That call does not pass <code>batch_max_concurrent</code>, so 16 applies unless you construct the handler yourself. The constructor argument that <code>RLM</code> does expose is <code>max_concurrent_subcalls</code>, and it controls a different path.</p>
+
+        <h2>Do recursive child RLMs use asyncio too?</h2>
+
+        <p>No, they use threads. <code>_rlm_query_batched</code> in the same REPL file runs each child RLM in a <code>ThreadPoolExecutor</code>. The pool size is <code>min(self.max_concurrent_subcalls, len(prompts))</code>, and <code>max_concurrent_subcalls</code> defaults to 4. The docstring gives the reason: the sub-calls "are independent and I/O-bound." If recursion is not configured, the function falls back to <code>llm_query_batched</code>.</p>
+
+        <p>DSPy takes the thread route for plain sub-calls as well. In <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py">dspy/predict/rlm.py</a>, <code>llm_query_batched(prompts)</code> submits each prompt to a <code>ThreadPoolExecutor</code> with <code>max_workers=8</code>. A failed model call returns a string that starts with <code>[ERROR]</code> in that slot. See our comparison of <a href="dspy-rlm-vs-reference-rlm-library.html">dspy.RLM and the reference library</a> for the other differences.</p>
+
+        <p>So there are two limits in the reference library, and they stack. A depth-2 run can start 4 children at a time, and each child can send a batch of up to 16 concurrent plain calls. Check that product against your provider rate limit before you raise either number.</p>
+
+        <h2>How do you write the pattern yourself?</h2>
+
+        <p>You need this only when you write your own harness, or when your sub-call function is synchronous and has no batched form. The following is an illustrative sketch. It uses only standard asyncio APIs, and <code>call_model</code> stands for your own blocking function. It is not code from the RLM library.</p>
+        <ol>
+        <li>Set a limit: <code>sem = asyncio.Semaphore(8)</code>.</li>
+        <li>Wrap one call: <code>async def one(p): async with sem: return await asyncio.to_thread(call_model, p)</code>.</li>
+        <li>Fan out: <code>answers = await asyncio.gather(*(one(p) for p in prompts), return_exceptions=True)</code>.</li>
+        <li>Check each slot with <code>isinstance(a, BaseException)</code> before you aggregate.</li>
+        </ol>
+
+        <p>Each part has a documented job. The <a href="https://docs.python.org/3/library/asyncio-sync.html">asyncio docs</a> say a semaphore "manages an internal counter," and that <code>acquire()</code> blocks at zero until another task calls <code>release()</code>. The docs call <code>async with</code> "the preferred way to use a Semaphore." They describe <code>asyncio.to_thread</code> as a way to run "IO-bound functions/methods that would otherwise block the event loop." If your client has a native async method, await it directly and drop <code>to_thread</code>, as the library does with <code>acompletion</code>.</p>
+
+        <p><code>asyncio.TaskGroup</code> is the newer option, added in Python 3.11. Its failure rule is different. The docs say that the first time a task in the group fails, "the remaining tasks in the group are cancelled." That is right for work where one failure makes the rest useless. It is wrong for a chunk fan-out where 19 good answers out of 20 still help. The library chose <code>gather</code> with <code>return_exceptions=True</code>, and for a map over chunks you should too.</p>
+
+        <h2>What goes wrong when you add concurrency?</h2>
+        <ul>
+        <li><strong>A second event loop.</strong> The <a href="https://docs.python.org/3/library/asyncio-runner.html">docs for asyncio.run</a> say it "cannot be called when another asyncio event loop is running in the same thread." If your application already runs a loop, model-written REPL code that calls <code>asyncio.run</code> in that thread will raise an error. The batched helper avoids this because its loop runs on the handler side.</li>
+        <li><strong>Batches that are too wide.</strong> The system prompt tells the model that batching "only parallelizes" and does not relax the budget. It gives "a useful rough ceiling" of about 20 prompts per batch and about 100K characters per prompt. It calls "tiny-prompt mega-batches" the anti-pattern.</li>
+        <li><strong>Dependent calls.</strong> Parallel calls cannot see each other. A running-summary loop, where call 2 needs the output of call 1, must stay sequential. Only independent chunks belong in a batch.</li>
+        <li><strong>Per-call timing.</strong> The handler sets each call's <code>execution_time</code> to the batch total divided by the number of prompts. The code labels this "approximate per-prompt time." Do not read it as a real latency for one call.</li>
+        <li><strong>The serial floor.</strong> Root turns stay sequential, because each turn reads the output of the turn before it. Concurrency shortens the leaves of the tree only. Extra depth adds more serial turns, which is one reason to <a href="how-deep-should-an-rlm-recurse.html">keep recursion shallow</a>.</li>
+        </ul>
+
+        <h2>The bottom line</h2>
+
+        <p>The paper measured a sequential implementation and named async sub-calls as future work. The library has since added them. In the reference library, call <code>llm_query_batched</code> for independent plain calls and <code>rlm_query_batched</code> for independent children. The first uses asyncio with a cap of 16. The second uses threads with a cap of 4. In DSPy, <code>llm_query_batched</code> uses 8 threads. Write your own semaphore, <code>to_thread</code> and <code>gather</code> code only for a custom harness, and keep failures per slot. Both repositories change often, so read the source for the release you install.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, HTML version. States that all LM calls were blocking and sequential, and names asynchronous sub-calls as future work. <a href="https://arxiv.org/html/2512.24601">arxiv.org/html/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, HTML version. Execution times of 3.6, 89.3 and 344.5 seconds for DeepSeek v3.2 on S-NIAH. <a href="https://arxiv.org/html/2603.02615">arxiv.org/html/2603.02615</a></li>
+            <li>Zhang, A. L., et al. "rlm" GitHub repository, README. Lists llm_query_batched, rlm_query_batched and max_concurrent_subcalls. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/README.md">raw.githubusercontent.com/alexzhang13/rlm/main/README.md</a></li>
+            <li>Zhang, A. L., et al. "rlm/environments/local_repl.py" source. Signatures of the batched helpers and the thread pool for recursive children. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/environments/local_repl.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/environments/local_repl.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/lm_handler.py" source. The asyncio.gather and asyncio.Semaphore code in _handle_batched, and the batch_max_concurrent default of 16. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/lm_handler.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/lm_handler.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/rlm.py" source. The max_concurrent_subcalls default of 4 and the LMHandler construction. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/utils/prompts.py" source. System prompt text on llm_query_batched and the rough ceiling of 20 prompts per batch. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py</a></li>
+            <li>Stanford NLP. "dspy/predict/rlm.py" source. llm_query_batched with a ThreadPoolExecutor and max_workers of 8. <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py">raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py</a></li>
+            <li>Python Software Foundation. "Coroutines and Tasks." Python 3 documentation. Behaviour of asyncio.gather, asyncio.TaskGroup and asyncio.to_thread. <a href="https://docs.python.org/3/library/asyncio-task.html">docs.python.org/3/library/asyncio-task.html</a></li>
+            <li>Python Software Foundation. "Synchronization Primitives." Python 3 documentation. Behaviour of asyncio.Semaphore. <a href="https://docs.python.org/3/library/asyncio-sync.html">docs.python.org/3/library/asyncio-sync.html</a></li>
+            <li>Python Software Foundation. "Runners." Python 3 documentation. The rule that asyncio.run cannot be called when another event loop runs in the same thread. <a href="https://docs.python.org/3/library/asyncio-runner.html">docs.python.org/3/library/asyncio-runner.html</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is there a batched sub-call function in the reference RLM library?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. The REPL exposes llm_query_batched(prompts, model=None) for plain model calls and rlm_query_batched(prompts, model=None) for recursive children. Both return a list of strings in the same order as the input prompts.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How many sub-calls run at once by default?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">For llm_query_batched, the LM handler uses an asyncio.Semaphore with batch_max_concurrent, which defaults to 16. For rlm_query_batched, a thread pool uses max_concurrent_subcalls, which defaults to 4. In DSPy, llm_query_batched uses a thread pool with max_workers set to 8.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should I use asyncio.gather or asyncio.TaskGroup for a chunk fan-out?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Use gather with return_exceptions=True when partial results are useful. The Python docs say a TaskGroup cancels the remaining tasks the first time one task fails. The reference library uses gather so that one failed call does not abort the batch.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Did the RLM paper measure the speedup from parallel sub-calls?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The paper says all LM calls in its experiments were blocking and sequential. It says asynchronous sub-calls can potentially reduce runtime, but it reports no measured speedup.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can every RLM sub-call run in parallel?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. Only independent calls can, such as the same question over separate chunks. A loop where each call needs the previous answer must stay sequential, and so must the turns of the root model.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
