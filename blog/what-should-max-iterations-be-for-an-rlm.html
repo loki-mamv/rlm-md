@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Should max_iterations Be for an RLM? | rlm.md</title>
+    <meta name="description" content="The reference RLM library defaults max_iterations to 30. DSPy calls it max_iters and defaults to 20. The paper tests no values, so measure your own runs.">
+    <meta name="keywords" content="RLM max_iterations, dspy.RLM max_iters, max_llm_calls, RLM iteration limit, REPL turns, recursive language models, max_depth, RLM cost control">
+    <link rel="canonical" href="https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html">
+    <meta property="og:title" content="What Should max_iterations Be for an RLM?">
+    <meta property="og:description" content="The reference RLM library caps the root loop at 30 turns. DSPy caps it at 20 and calls it max_iters. Here is what happens at the cap and how to set it from your own logs.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Should max_iterations Be for an RLM?">
+    <meta name="twitter:description" content="RLM turn caps: 30 in the reference library, 20 in DSPy, and no tested value in the paper.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM max_iterations, dspy.RLM max_iters, max_llm_calls, RLM iteration limit, REPL turns, recursive language models, max_depth, RLM cost control">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html#article",
+      "headline": "What Should max_iterations Be for an RLM?",
+      "description": "The reference RLM library defaults max_iterations to 30. DSPy calls it max_iters and defaults to 20. The paper tests no values, so measure your own runs.",
+      "url": "https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html",
+      "datePublished": "2026-10-10",
+      "dateModified": "2026-10-10",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html#article"
+      },
+      "wordCount": "1491"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the default max_iterations in the reference RLM library?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The default is 30. The constructor in rlm/core/rlm.py has max_iterations: int = 30, and the root loop runs for at most that many turns. The README does not document the setting, so read the source for the release you install."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does dspy.RLM have a max_iterations parameter?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. DSPy calls the same idea max_iters, and its default is 20. DSPy also has max_llm_calls, default 50, which caps sub-LLM calls across one run. The two limits are independent."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does an RLM raise an error when it runs out of iterations?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No, not in these two libraries. The reference library asks the root model for a final answer in one more call and returns that text. DSPy runs an extract predictor over the REPL history and fills the output fields. Both return a normal result, so you must detect the cap hit yourself."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is max_iterations the same as max_depth?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. max_depth sets how many levels of child RLMs can exist. max_iterations sets how many REPL turns each level can take. In the reference library a child RLM gets the same max_iterations value as its parent."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Did the RLM paper test different iteration limits?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The paper sweeps recursion depth, but it reports no sweep of the iteration cap. The one stated value is in the training appendix, where the MRCRv2 experiment set the maximum number of RLM iterations to 20."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Should max_iterations Be for an RLM?</h1>
+        <p class="lead">The two main RLM libraries use different names and different defaults for the root loop cap. The paper tests no values, so the right number comes from your own logs.</p>
+    </div>
+
+    <div class="blog-meta">October 10, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> start with the library default, then measure. The reference RLM library sets <code>max_iterations=30</code>. DSPy names the setting <code>max_iters</code> and sets it to 20. The RLM paper tests no values for this cap, so no number has research behind it. Log the turns your tasks use, set the cap a little above what successful runs need, and use a budget or timeout limit to control cost.</p>
+
+        <h2>What does max_iterations control?</h2>
+
+        <p>It caps the turns of the root loop. In one turn, the root model writes code, the REPL runs the code, and the output goes back to the model. The loop ends when the model submits a final answer or when the turn count reaches the cap.</p>
+
+        <p>This is a different setting from recursion depth. <code>max_depth</code> controls how many levels of child RLMs can exist. <code>max_iterations</code> controls how many turns each level can take. Our post on <a href="how-deep-should-an-rlm-recurse.html">how deep an RLM should recurse</a> covers depth. This post covers only the turn cap.</p>
+
+        <p>The <a href="https://arxiv.org/html/2512.24601">RLM paper</a> writes its core loop as <code>while True</code>, with no cap in the algorithm. The text then adds that "we typically want to limit the iterations at any level of recursion irrespective." The paper also notes that one root iteration "can launch arbitrarily many sub-calls." So the turn cap limits the length of the loop. It does not limit the work inside one turn.</p>
+
+        <h2>What are the defaults in the two libraries?</h2>
+
+        <p>The parameter name is not the same in both libraries, and the defaults differ.</p>
+        <ul>
+        <li><strong>Reference library.</strong> The constructor in <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py">rlm/core/rlm.py</a> has <code>max_iterations: int = 30</code>. The docstring says "The maximum number of iterations of the RLM." The loop is <code>for i in range(self.max_iterations)</code>.</li>
+        <li><strong>DSPy.</strong> The constructor in <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py">dspy/predict/rlm.py</a> has <code>max_iters: int = 20</code>. The docstring says "Maximum REPL interaction iterations." The same constructor has <code>max_llm_calls: int = 50</code>, which is a separate cap on sub-LLM calls.</li>
+        </ul>
+
+        <p>Both libraries show the cap to the model. The reference library starts each turn with a user message built from the template <code>Turn {iter_1}/{max_iter}:</code> in <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py">rlm/utils/prompts.py</a>. DSPy passes an <code>iteration</code> field that it describes as the "Current iteration number (1-indexed) out of max_iters." So the cap is also a signal. The model can see how many turns it has left.</p>
+
+        <p>The <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/README.md">README</a> of the reference library does not document <code>max_iterations</code>. You find the default only in the source. Both repositories change often, so read the source for the release you install. Our comparison of <a href="dspy-rlm-vs-reference-rlm-library.html">dspy.RLM and the reference library</a> lists the other constructor differences.</p>
+
+        <h2>What happens when the loop hits the cap?</h2>
+
+        <p>Neither library raises an error. Each one forces an answer, and that is the risk.</p>
+
+        <p>In the reference library, the code after the loop calls <code>_default_answer</code>. The method appends one message to the history: "Please provide a final answer to the user's question based on the information provided." It then makes one more model call and returns that text as the response. The root model writes this answer from its message history. No code runs, so the answer does not come from a REPL variable.</p>
+
+        <p>In DSPy, the loop falls through to an <code>extract</code> predictor. The <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/docs/docs/diving-deeper/rlm.md">DSPy guide</a> says the step "reads the variable metadata and the full REPL history and produces the signature’s output fields directly." The source logs a warning, "RLM reached max iterations, using extract to get final output," and sets <code>final_reasoning</code> to "Extract forced final output."</p>
+
+        <p>The paper shows how a forced answer can fail. In its Example E.2, RLM with Qwen3-Coder built the answer in the REPL in the first iteration. It then repeated the same work for steps 6 to 11, "before finally returning an answer after being prompted to provide a final answer." The paper says the returned answer was "the root LM generating an answer," and that it was wrong. The correct answer was in a variable, and the model never returned it.</p>
+
+        <p>A run that hits the cap is therefore a failed run with an answer attached. Flag it. Do not count it as a normal result.</p>
+
+        <h2>Does the research recommend a value?</h2>
+
+        <p>No. The paper sweeps recursion depth from 0 to 3, but it reports no sweep of the turn cap. In the text we read, the paper does not state the cap for its main benchmark runs. It gives one number, in the training appendix: for the MRCRv2 experiment the authors "set the max number of RLM iterations to 20." That is a training configuration. It is not a recommendation for inference.</p>
+
+        <p>The paper does describe the shape of the problem. It finds "that the median RLM run is cheaper than the median base model run, but more expensive on average due to outlier trajectories where the RLM struggles to find an answer." It says the longest runs happen infrequently and "can be early-stopped with timeout logic."</p>
+
+        <p>The <a href="https://arxiv.org/html/2603.02615">reproduction study</a> does not report an iteration cap. It names a failure mode, "Performative Reasoning and Endless Verification." In one OOLONG run at depth 2, DeepSeek v3.2 spent 741.5 seconds to generate 11,715 tokens. The author asks for "better stopping mechanisms within the REPL environment to prevent redundant loops."</p>
+
+        <p>The rest of this article is engineering reasoning. It is not a research result.</p>
+
+        <h2>How do you choose a value for your tasks?</h2>
+
+        <p>Measure the turns your tasks use, then set the cap from that data.</p>
+        <ol>
+        <li><strong>Start at the default.</strong> Use 30 in the reference library or 20 in DSPy.</li>
+        <li><strong>Log every run.</strong> In the reference library, pass <code>logger=RLMLogger()</code>. The README says <code>completion.metadata</code> then holds "the full trajectory (run config + all iterations and sub-calls)." In DSPy, each <code>Prediction</code> has a <code>trajectory</code> list.</li>
+        <li><strong>Count turns for each task.</strong> Use a sample that matches your real workload. Keep correct runs and wrong runs in separate groups.</li>
+        <li><strong>Find the cap hits.</strong> In DSPy, look for <code>final_reasoning</code> equal to "Extract forced final output." In the reference library, <code>_default_answer</code> logs one extra iteration with an empty <code>code_blocks</code> list.</li>
+        <li><strong>Set the cap above the turn count of your correct runs.</strong> Leave a small margin. If almost all correct runs finish in 8 turns, a cap of 30 mostly pays for failed runs.</li>
+        <li><strong>Raise the cap only with evidence.</strong> If correct runs often finish on the last turns, the cap is too low. If cap hits come from repeated work, a higher cap will not help. Fix the prompt or change the model.</li>
+        </ol>
+
+        <p>Do the count again when you change the base model. The paper found that Qwen3-Coder made "hundreds to thousands of recursive sub-calls for a single simple task, while GPT-5 makes on the order of ten." Turn counts can differ between models in the same way. Our guide on <a href="how-to-evaluate-a-recursive-language-model.html">how to evaluate an RLM</a> covers what else to log.</p>
+
+        <h2>Is the iteration cap enough to control cost?</h2>
+
+        <p>No. A turn has no fixed price, because one turn can start many sub-calls. Use the cap to stop loops and a second limit to stop spend.</p>
+        <ul>
+        <li><strong>Reference library.</strong> The constructor has <code>max_budget</code> in USD, <code>max_timeout</code> in seconds, <code>max_tokens</code> and <code>max_errors</code>. All four default to <code>None</code>, so they are off until you set them. Each one raises an exception when exceeded. The docstring says <code>max_budget</code> "requires cost-tracking backend (e.g., OpenRouter)."</li>
+        <li><strong>DSPy.</strong> <code>max_llm_calls</code> counts each prompt in a batch as one call. Past the limit, the call fails with "LLM call limit exceeded," and the message says "Use Python code for aggregation instead of making more LLM calls."</li>
+        </ul>
+
+        <p>Depth multiplies the turn cap in the reference library. When a parent starts a child RLM, the code passes <code>max_iterations=self.max_iterations</code>. Each child gets the full turn count again. At <code>max_depth=2</code>, each child that the root starts can take up to 30 turns of its own. The children receive the remaining budget and the remaining timeout, so those two limits do apply to the full tree.</p>
+
+        <p>History length is the other cost. The reference library sends the full message history to the root model on each turn, so later turns cost more input tokens than early turns. The library has an optional <code>compaction</code> flag that summarizes the root history near the context limit. It is off by default.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>No published result gives a correct value for the turn cap. The reference library uses 30. DSPy uses 20 and calls the setting <code>max_iters</code>. The paper used 20 in one training experiment and tested no other values. Keep the default, log the turns your tasks use, and set the cap a little above what correct runs need. Treat each cap hit as a failure to inspect, because both libraries return a forced answer with no error. Control spend with <code>max_budget</code>, <code>max_timeout</code> or <code>max_llm_calls</code>.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, HTML version. The while-True loop in Algorithm 1, the note on limiting iterations, the MRCRv2 training cap of 20, Example E.2 and the outlier trajectory findings. <a href="https://arxiv.org/html/2512.24601">arxiv.org/html/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, HTML version. The endless verification failure mode, the 741.5 second run and the call for better stopping mechanisms. <a href="https://arxiv.org/html/2603.02615">arxiv.org/html/2603.02615</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/rlm.py" source. max_iterations default of 30, the root loop, _default_answer, the max_budget, max_timeout, max_tokens and max_errors limits, and the child RLM constructor call. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/core/rlm.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/utils/prompts.py" source. The per-turn user prompt template that shows the turn number and the cap to the model. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py">raw.githubusercontent.com/alexzhang13/rlm/main/rlm/utils/prompts.py</a></li>
+            <li>Zhang, A. L., et al. "rlm" GitHub repository, README. RLMLogger and the trajectory in completion.metadata. Has no entry for max_iterations. <a href="https://raw.githubusercontent.com/alexzhang13/rlm/main/README.md">raw.githubusercontent.com/alexzhang13/rlm/main/README.md</a></li>
+            <li>Stanford NLP. "dspy/predict/rlm.py" source. max_iters default of 20, max_llm_calls default of 50, the call limit error and the extract fallback. <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py">raw.githubusercontent.com/stanfordnlp/dspy/main/dspy/predict/rlm.py</a></li>
+            <li>Stanford NLP. "RLM: exploring large contexts with code." DSPy documentation source. Description of max_iters, max_llm_calls and the extract fallback. <a href="https://raw.githubusercontent.com/stanfordnlp/dspy/main/docs/docs/diving-deeper/rlm.md">raw.githubusercontent.com/stanfordnlp/dspy/main/docs/docs/diving-deeper/rlm.md</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What is the default max_iterations in the reference RLM library?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The default is 30. The constructor in rlm/core/rlm.py has max_iterations: int = 30, and the root loop runs for at most that many turns. The README does not document the setting, so read the source for the release you install.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does dspy.RLM have a max_iterations parameter?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. DSPy calls the same idea max_iters, and its default is 20. DSPy also has max_llm_calls, default 50, which caps sub-LLM calls across one run. The two limits are independent.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does an RLM raise an error when it runs out of iterations?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No, not in these two libraries. The reference library asks the root model for a final answer in one more call and returns that text. DSPy runs an extract predictor over the REPL history and fills the output fields. Both return a normal result, so you must detect the cap hit yourself.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is max_iterations the same as max_depth?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. max_depth sets how many levels of child RLMs can exist. max_iterations sets how many REPL turns each level can take. In the reference library a child RLM gets the same max_iterations value as its parent.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Did the RLM paper test different iteration limits?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The paper sweeps recursion depth, but it reports no sweep of the iteration cap. The one stated value is in the training appendix, where the MRCRv2 experiment set the maximum number of RLM iterations to 20.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

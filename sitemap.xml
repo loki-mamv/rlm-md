@@ -32,6 +32,7 @@
   <url><loc>https://rlm.md/blog/rlm-vs-rag-retrieval-augmented-generation.html</loc><lastmod>2026-02-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/small-models-big-contexts-rlm-efficiency.html</loc><lastmod>2026-02-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/what-base-model-do-you-need-for-an-rlm.html</loc><lastmod>2026-08-31</lastmod><priority>0.7</priority></url>
+  <url><loc>https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html</loc><lastmod>2026-10-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/why-context-windows-are-the-wrong-abstraction.html</loc><lastmod>2026-02-10</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/why-does-my-rlm-hallucinate-repl-output.html</loc><lastmod>2026-09-17</lastmod><priority>0.7</priority></url>
   <url><loc>https://rlm.md/blog/why-small-models-repeat-themselves-in-llm-query-sub-calls.html</loc><lastmod>2026-09-24</lastmod><priority>0.7</priority></url>
