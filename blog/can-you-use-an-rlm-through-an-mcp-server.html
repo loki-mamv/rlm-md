@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can You Use an RLM Through an MCP Server? | rlm.md</title>
+    <meta name="description" content="Yes. Wrap an RLM in an MCP tool, pass the big context by file path or URI, and give the server its own model key, since MCP sampling is now deprecated.">
+    <meta name="keywords" content="RLM MCP server, recursive language model MCP, Model Context Protocol, MCP sampling deprecated, rlm_query tool, dspy.RLM tools, Claude Code MCP timeout, custom_tools">
+    <link rel="canonical" href="https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html">
+    <meta property="og:title" content="Can You Use an RLM Through an MCP Server?">
+    <meta property="og:description" content="You can put a Recursive Language Model behind an MCP tool or give its REPL MCP tools. Pass context by reference and do not build on MCP sampling, which the 2026-07-28 spec deprecates.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Can You Use an RLM Through an MCP Server?">
+    <meta name="twitter:description" content="An RLM works behind an MCP tool if you pass context by path, use a server-side model key, and plan for long tool calls.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM MCP server, recursive language model MCP, Model Context Protocol, MCP sampling deprecated, rlm_query tool, dspy.RLM tools, Claude Code MCP timeout, custom_tools">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html#article",
+      "headline": "Can You Use an RLM Through an MCP Server?",
+      "description": "Yes. Wrap an RLM in an MCP tool, pass the big context by file path or URI, and give the server its own model key, since MCP sampling is now deprecated.",
+      "url": "https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html",
+      "datePublished": "2026-10-12",
+      "dateModified": "2026-10-12",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html#article"
+      },
+      "wordCount": "1363"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is there an official MCP server for Recursive Language Models?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The README of the reference RLM library and the dspy.RLM API page do not mention MCP as of October 12, 2026. Community repositories exist, and you can write your own wrapper around one of the two libraries."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does an RLM MCP server need its own API key?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, for a durable design. MCP sampling let a server use the client's model with no server key, but the 2026-07-28 spec revision deprecates it. The spec's suggested migration is to integrate directly with LLM provider APIs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why not pass the document as a tool argument?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The host model must write every token of a tool argument, so the document enters the host's context window first. That removes the reason to use an RLM. Pass a file path, a resource URI, or a server-side handle, and let the server load the data."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do MCP progress notifications stop a long RLM call from timing out?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not reliably. The 2025-06-18 spec says implementations may reset the timeout clock on progress but should always enforce a maximum timeout. Claude Code's docs say its per-server timeout is a hard wall-clock limit that progress notifications do not extend."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can dspy.RLM use tools from an MCP server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "dspy.RLM accepts a tools list of functions or dspy.Tool objects, and DSPy can build a dspy.Tool from an MCP tool with dspy.Tool.from_mcp_tool. The DSPy MCP tutorial shows this with ReAct and notes that MCP tools are async by default. Test the async behavior inside the RLM interpreter before production use."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Can You Use an RLM Through an MCP Server?</h1>
+        <p class="lead">Neither main RLM library ships an MCP server, but a thin wrapper works in both directions. The design choices are how the context gets in, who pays for sub-calls, and how long the tool call can run.</p>
+    </div>
+
+    <div class="blog-meta">October 12, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> yes, in two directions. You can put an RLM behind an MCP tool, so a host such as Claude Code calls it. You can also give the RLM's REPL access to MCP tools. Neither main RLM library ships an MCP server, so you write a thin wrapper. Pass the large context by path or URI, give the server its own model key, and plan for long tool calls.</p>
+
+        <h2>What does "an RLM through MCP" mean?</h2>
+        <p>The Model Context Protocol (MCP) connects an AI application (the host) to servers that expose tools, resources and prompts. A Recursive Language Model is an inference loop. The <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> describes a paradigm that "treats long prompts as part of an external environment." The model writes code in a REPL to inspect the prompt and call itself on pieces of it.</p>
+        <p>The two fit together in two ways:</p>
+        <ul>
+        <li><strong>RLM as a tool.</strong> An MCP server exposes a tool such as <code>rlm_query</code>. The host model calls it when an input is too large for its window.</li>
+        <li><strong>MCP tools inside the RLM.</strong> The RLM is the application. Its REPL code calls MCP tools as Python functions.</li>
+        </ul>
+        <p>The first direction is what most people mean. It is also the one with more design traps.</p>
+
+        <h2>Do the RLM libraries ship an MCP server?</h2>
+        <p>No. We read both on October 12, 2026. The README of the <a href="https://github.com/alexzhang13/rlm">reference RLM library</a> does not mention MCP. It lists REPL environments (<code>local</code>, <code>ipython</code>, <code>docker</code>, <code>modal</code>, <code>prime</code>, <code>daytona</code>, <code>e2b</code>) and model clients. The <a href="https://dspy.ai/current/api/modules/RLM/">dspy.RLM API page</a> does not mention MCP either.</p>
+        <p>Community projects fill the gap. One example is <a href="https://github.com/NextTokens/rlm-mcp">rlm-mcp</a>, a small MIT-licensed repository with six tools, including <code>rlm_load_file</code> and <code>rlm_execute_code</code>. Its README says "Claude is the brain, RLM is the hands." The host model writes the Python, and the server runs it. The README describes no sub-model calls from the server.</p>
+        <p>That design is closer to a persistent REPL tool than to the loop in the paper. In the paper, code inside the REPL calls the model again. If you want that behavior, the server must run the full loop and hold a model client. Our post on <a href="dspy-rlm-vs-reference-rlm-library.html">dspy.RLM and the reference library</a> covers which library to wrap.</p>
+
+        <h2>Can the server borrow the host's model through MCP sampling?</h2>
+        <p>It could, but do not build on it now. Sampling is the MCP feature that lets a server ask the client's model for a completion. The <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/sampling">2025-06-18 spec</a> says the flow enables servers to use the model "with no server API keys necessary." For an RLM server, that looked ideal: each <code>llm_query</code> sub-call would become one <code>sampling/createMessage</code> request.</p>
+        <p>Three facts work against it:</p>
+        <ul>
+        <li><strong>Sampling is deprecated.</strong> The <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">2026-07-28 changelog</a> deprecates the Roots, Sampling and Logging features. The suggested migration is to "integrate directly with LLM provider APIs instead of Sampling." The <a href="https://modelcontextprotocol.io/specification/2026-07-28/deprecated">deprecated features registry</a> gives the earliest removal as the first revision released on or after 2027-07-28.</li>
+        <li><strong>The request shape changed.</strong> The same revision replaces server-initiated requests such as <code>sampling/createMessage</code> with a Multi Round-Trip Requests pattern. The server returns an <code>input_required</code> result, and the client retries the original request with the answers. An RLM run with dozens of sub-calls would need dozens of retries of one tool call.</li>
+        <li><strong>The spec asks for a human check.</strong> The sampling page says "there SHOULD always be a human in the loop with the ability to deny sampling requests." It also says model hints are advisory: "clients make final model selection." You cannot be sure which model answers a sub-call.</li>
+        </ul>
+        <p>Client support was never certain either. A client must declare the <code>sampling</code> capability. The <a href="https://code.claude.com/docs/en/mcp">Claude Code MCP page</a> documents elicitation and resources. We found no sampling section on it.</p>
+        <p>So give the server its own model client and API key. This also lets you choose a cheaper model for sub-calls than the host model.</p>
+
+        <h2>How should the large context reach the RLM?</h2>
+        <p>By reference. This is the most important design decision. If the host model passes a 2 MB log as a tool argument, the host model must first write those tokens. The text is then in the host's context window, and the RLM has no purpose.</p>
+        <p>Use one of these instead:</p>
+        <ul>
+        <li><strong>A file path.</strong> The tool takes <code>path</code> and <code>question</code>. The server reads the file and stores it as the REPL variable. The community server above works this way with <code>rlm_load_file("/var/log/app.log")</code>.</li>
+        <li><strong>A resource URI.</strong> The tool takes a URI, and the server resolves it. The 2026-07-28 changelog recommends tool parameters and resource URIs as the way to pass files, now that Roots is deprecated.</li>
+        <li><strong>A server-side handle.</strong> One tool loads the data and returns a short handle. Later calls pass the handle. The 2026-07-28 changelog describes "server-minted handles passed as ordinary tool arguments" for state across calls.</li>
+        </ul>
+        <p>The return value needs the same care. Claude Code warns when an MCP tool output exceeds 10,000 tokens and limits output to 25,000 tokens by default. Return the final answer and a short trace summary. Write the full trajectory to a file and return its path.</p>
+
+        <h2>What about timeouts on long RLM runs?</h2>
+        <p>An RLM run can take minutes. A tool call that looks hung gets cancelled. The <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle">2025-06-18 lifecycle page</a> says implementations "SHOULD establish timeouts for all sent requests." It adds that they "MAY choose to reset the timeout clock when receiving a progress notification," but "SHOULD always enforce a maximum timeout."</p>
+        <p>Progress is opt-in. Per the <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress">progress page</a>, the caller includes a <code>progressToken</code> in the request, and the receiver may send <code>notifications/progress</code>. Send one after each root iteration, with a message such as "iteration 4 of 30." Do not depend on it to extend the limit. The Claude Code docs say the per-server <code>timeout</code> is "a hard wall-clock limit per tool call, and progress notifications from the server don't extend it."</p>
+        <p>Three controls help:</p>
+        <ol>
+        <li>Set the RLM's own limit below the client limit. The reference library has <code>max_timeout</code>, which stops the run and returns the "best answer if available." It also has <code>max_budget</code> in USD.</li>
+        <li>Cap the loop. See our post on <a href="what-should-max-iterations-be-for-an-rlm.html">max_iterations</a>.</li>
+        <li>For long jobs, split the tool: one call starts the run and returns a handle, and a second call polls it. The MCP tasks feature does this at protocol level. It was experimental in 2025-11-25, and 2026-07-28 moved it into an official extension, so check your client first.</li>
+        </ol>
+
+        <h2>Can the RLM's REPL call MCP tools?</h2>
+        <p>Yes, through the tool hooks that both libraries have. The reference library's constructor takes <code>custom_tools</code>, a dict of functions available in the REPL, and <code>custom_sub_tools</code> for sub-calls. <code>dspy.RLM</code> takes <code>tools</code>, described as "tool functions or dspy.Tool objects callable from interpreter code."</p>
+        <p>DSPy has a converter. Its <a href="https://dspy.ai/current/tutorials/mcp/">MCP tutorial</a> builds tools with <code>dspy.Tool.from_mcp_tool(client, tool)</code>. The tutorial uses ReAct, not RLM, and notes that "MCP tools are async by default." Test an async MCP tool from the RLM interpreter before you depend on it. A plain sync wrapper function is the safe path.</p>
+        <p>Two cautions apply. In an isolated environment, the reference README says custom tools must be "Python code strings or JSON-serializable values," because host callables cannot cross the process boundary. A live MCP client session is a host callable. Also, every MCP tool you add is a new action for model-written code. Our <a href="how-to-sandbox-the-rlm-repl.html">REPL sandbox post</a> explains why that matters for untrusted input.</p>
+
+        <h2>The bottom line</h2>
+        <p>You can use an RLM through an MCP server, but you build the server yourself. Wrap the reference library or <code>dspy.RLM</code> in one tool that takes a path and a question. Give the server its own model key, because MCP sampling is deprecated as of the 2026-07-28 revision. Keep the big input out of the tool arguments and the big trace out of the result. Set the RLM timeout below the client's tool timeout, and send progress after each iteration.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, v3 May 11, 2026. Defines the RLM paradigm in which the prompt is part of an external environment. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L. et al. "rlm." GitHub repository README and rlm/core/rlm.py, read October 12, 2026. No MCP integration; REPL environments, custom_tools, custom_sub_tools, max_timeout and max_budget. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>DSPy. "dspy.RLM." API reference, read October 12, 2026. Constructor signature and the tools parameter; no MCP mention. <a href="https://dspy.ai/current/api/modules/RLM/">dspy.ai/current/api/modules/RLM</a></li>
+            <li>DSPy. "Use MCP in DSPy." Tutorial, read October 12, 2026. dspy.Tool.from_mcp_tool and the note that MCP tools are async by default. <a href="https://dspy.ai/current/tutorials/mcp/">dspy.ai/current/tutorials/mcp</a></li>
+            <li>Model Context Protocol. "Sampling." Specification revision 2025-06-18. sampling/createMessage, the sampling capability, human-in-the-loop guidance and advisory model hints. <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/sampling">modelcontextprotocol.io/specification/2025-06-18/client/sampling</a></li>
+            <li>Model Context Protocol. "Key Changes." Specification revision 2026-07-28. Deprecation of Roots, Sampling and Logging; Multi Round-Trip Requests; tasks moved to an extension; server-minted handles. <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">modelcontextprotocol.io/specification/2026-07-28/changelog</a></li>
+            <li>Model Context Protocol. "Deprecated Features." Specification revision 2026-07-28. Migration path and earliest removal for Sampling. <a href="https://modelcontextprotocol.io/specification/2026-07-28/deprecated">modelcontextprotocol.io/specification/2026-07-28/deprecated</a></li>
+            <li>Model Context Protocol. "Key Changes." Specification revision 2025-11-25. Experimental tasks added for durable requests. <a href="https://modelcontextprotocol.io/specification/2025-11-25/changelog">modelcontextprotocol.io/specification/2025-11-25/changelog</a></li>
+            <li>Model Context Protocol. "Lifecycle." Specification revision 2025-06-18. Timeouts section: request timeouts, progress and the maximum timeout. <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle">modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle</a></li>
+            <li>Model Context Protocol. "Progress." Specification revision 2025-06-18. progressToken and notifications/progress. <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress">modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress</a></li>
+            <li>Anthropic. Claude Code documentation, MCP page (code.claude.com/docs/en/mcp), read October 12, 2026. Per-server tool timeout, MCP output token limits, resources and elicitation. <a href="https://code.claude.com/docs/en/mcp">code.claude.com/docs/en/mcp</a></li>
+            <li>NextTokens (Ahmed Ali). "rlm-mcp." GitHub repository README, read October 12, 2026. Community MCP server; file loaded by path; host model writes the REPL code. <a href="https://github.com/NextTokens/rlm-mcp">github.com/NextTokens/rlm-mcp</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is there an official MCP server for Recursive Language Models?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. The README of the reference RLM library and the dspy.RLM API page do not mention MCP as of October 12, 2026. Community repositories exist, and you can write your own wrapper around one of the two libraries.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does an RLM MCP server need its own API key?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, for a durable design. MCP sampling let a server use the client&#x27;s model with no server key, but the 2026-07-28 spec revision deprecates it. The spec&#x27;s suggested migration is to integrate directly with LLM provider APIs.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why not pass the document as a tool argument?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The host model must write every token of a tool argument, so the document enters the host&#x27;s context window first. That removes the reason to use an RLM. Pass a file path, a resource URI, or a server-side handle, and let the server load the data.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do MCP progress notifications stop a long RLM call from timing out?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not reliably. The 2025-06-18 spec says implementations may reset the timeout clock on progress but should always enforce a maximum timeout. Claude Code&#x27;s docs say its per-server timeout is a hard wall-clock limit that progress notifications do not extend.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can dspy.RLM use tools from an MCP server?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">dspy.RLM accepts a tools list of functions or dspy.Tool objects, and DSPy can build a dspy.Tool from an MCP tool with dspy.Tool.from_mcp_tool. The DSPy MCP tutorial shows this with ReAct and notes that MCP tools are async by default. Test the async behavior inside the RLM interpreter before production use.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

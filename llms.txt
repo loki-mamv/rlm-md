@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [Can You Use an RLM Through an MCP Server? | rlm.md](https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html)
 - [What Should max_iterations Be for an RLM? | rlm.md](https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html)
 - [How Do You Run RLM Sub-Calls in Parallel With Asyncio? | rlm.md](https://rlm.md/blog/how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html)
 - [Can More Thinking Tokens Make a Reasoning Model Less Accurate? | rlm.md](https://rlm.md/blog/can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html)
