@@ -76,7 +76,7 @@
                 <p>The REPL (Read-Eval-Print Loop) is where the magic happens. When an RLM receives a prompt P, it initializes a persistent Python environment with:</p>
                 <ul>
                     <li><strong>P as a string variable</strong> -- the full prompt text, accessible by indexing/slicing</li>
-                    <li><strong>A sub_rlm() function</strong> -- invokes a fresh RLM on any string, returns the response</li>
+                    <li><strong>A sub-call function</strong> -- sends any string to a language model and returns the response. The paper's Algorithm 1 names it <code>sub_RLM</code>. The paper's experiment prompt and the reference library expose it as <code>llm_query()</code> (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>, Appendix C)</li>
                     <li><strong>Standard Python</strong> -- loops, string operations, data structures, everything you'd expect</li>
                 </ul>
                 <p>The model then generates code in iterative turns. Each turn: write code, execute it, observe metadata about the result (not the full stdout -- just its length and a prefix). This forces the model to keep heavy data in REPL variables rather than polluting its own context window.</p>
@@ -93,10 +93,10 @@
             </div>
             <div>
                 <p>The model decides its own decomposition strategy. Nobody hardcodes chunk sizes or overlap windows. The model examines metadata about P (length, prefix, type) and writes appropriate slicing code. Common patterns observed in the paper:</p>
-                <p><strong>Fixed-size chunking</strong> -- the simplest approach. Split P into N-token chunks, process each with a sub-RLM, aggregate results. Used for straightforward aggregation tasks.</p>
+                <p><strong>Fixed-size chunking</strong> -- the simplest approach. Split P into fixed-size chunks, process each with a sub-call, aggregate results. Used for straightforward aggregation tasks.</p>
                 <p><strong>Semantic chunking</strong> -- the model peeks at P to find natural boundaries (document separators, paragraph breaks, function definitions in code) and splits on those.</p>
-                <p><strong>Hierarchical decomposition</strong> -- for tasks requiring deep reasoning, the model might first chunk at a coarse level (documents), then have sub-RLMs further decompose within each document. True recursion, not just one level of delegation.</p>
-                <p><strong>Targeted probing</strong> -- for search-like tasks, the model might use BM25-style keyword matching in the REPL to identify relevant sections, then only launch sub-RLMs on those sections. This is why RLMs can be <em>cheaper</em> than base model calls -- selective context access.</p>
+                <p><strong>Hierarchical decomposition</strong> -- for tasks requiring deep reasoning, the model might first chunk at a coarse level (documents), then have sub-RLMs further decompose within each document. This needs a max recursion depth above 1. At the paper's default depth of 1, each sub-call goes to a plain LLM (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>, Section 3.2).</p>
+                <p><strong>Targeted probing</strong> -- for search-like tasks, the model often uses regex and keyword filters in the REPL to identify relevant sections, then only launches sub-calls on those sections. This is why RLMs can be <em>cheaper</em> than base model calls -- selective context access.</p>
                 <p>The key difference from RAG or sliding-window approaches: the model is in control. It writes the decomposition logic itself, adapting to the specific task and input structure. No one-size-fits-all chunking strategy imposed from outside.</p>
             </div>
         </div>
@@ -109,11 +109,11 @@
                 <h2>Recursive self-invocation</h2>
             </div>
             <div>
-                <p>The sub_rlm() function is what gives RLMs their recursive power. When the root model writes:</p>
+                <p>The sub-call function is what gives RLMs their recursive power. When the root model writes:</p>
                 <div style="background: var(--bg-alt, rgba(255,255,255,0.02)); padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin: 1rem 0; border: 1px solid var(--border);">
-                    results = [sub_rlm(f"Classify this text: {chunk}") for chunk in chunks]
+                    results = [llm_query(f"Classify this text: {chunk}") for chunk in chunks]
                 </div>
-                <p>Each sub_rlm() call spins up a fresh RLM instance. That instance gets its own REPL, its own context window, its own ability to recurse further. The sub-model can be the same model or a smaller/cheaper one.</p>
+                <p>Each call gets a fresh context window. What answers the call depends on the max recursion depth. At depth 1, the paper's default, a plain LLM answers. Above depth 1, the sub-call is a full RLM with its own REPL and its own ability to recurse (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>, Section 3.2). The reference library has both forms: <code>llm_query()</code> for a single LM call and <code>rlm_query()</code> for a recursive sub-RLM call (<a href="https://github.com/alexzhang13/rlm" target="_blank">alexzhang13/rlm README</a>). The sub-model can be the same model or a smaller/cheaper one.</p>
                 <p>In the paper's GPT-5 experiments, the root model is GPT-5 while sub-calls use GPT-5-mini -- striking a balance between capability and cost. For the Qwen3-Coder experiments, the same model is used throughout.</p>
                 <p>This is fundamentally different from autoregressive sub-agent delegation. When Anthropic's agent patterns or similar scaffolds "delegate" to a sub-agent, they verbalize the delegation in their output stream -- one sub-call per generated token sequence. An RLM writes a <em>for loop</em> that launches thousands of sub-calls through a few tokens of code. The semantic work scales with the program, not with the output length.</p>
             </div>
@@ -145,7 +145,7 @@
                 <p><strong>vs RAG (Retrieval-Augmented Generation)</strong> -- RAG retrieves a fixed number of relevant chunks and feeds them to the model. Great for lookup tasks, terrible for aggregation. If the answer requires reasoning across every chunk in a corpus, RAG can't help you. RLMs can.</p>
                 <p><strong>vs Sliding Window / Context Compaction</strong> -- Summarization agents iteratively compress context as it fills up. This works okay for shallow tasks but presumes you can safely forget early details to make room for new ones. For dense reasoning tasks, that assumption is fatal. On BrowseComp-Plus, RLMs outperform the summarization baseline by over 29%.</p>
                 <p><strong>vs CodeAct / ReAct Agents</strong> -- These agents can execute code in a loop, but they put the user prompt directly into the model's context. They inherit all the limitations of the base model's context window. Adding BM25 retrieval helps for search tasks but doesn't address aggregation.</p>
-                <p><strong>vs CodeAct with Sub-calls</strong> -- The closest baseline. This gives the agent both code execution and the ability to invoke sub-LM calls. But because the prompt is in-context rather than in a variable, it still hits the wall on long inputs. The paper tests this ablation directly: on information-dense tasks, RLMs outperform by 10-59%.</p>
+                <p><strong>vs CodeAct with Sub-calls</strong> -- The closest baseline. This gives the agent both code execution and the ability to invoke sub-LM calls. But because the prompt is in-context rather than in a variable, it still hits the wall on long inputs. The paper tests this baseline directly. On GPT-5, CodeAct with sub-calls scores 40.0 on OOLONG and 28.4 on OOLONG-Pairs, against 56.0 and 58.0 for the RLM. On BrowseComp-Plus it hits the context limit and scores 0.0, against 91.3 for the RLM (<a href="https://arxiv.org/abs/2512.24601v3" target="_blank">arXiv:2512.24601v3</a>, Table 1).</p>
                 <p><strong>vs Bigger Context Windows</strong> -- This is the elephant in the room. Why not just wait for 10M-token context windows? Because context rot isn't a scaling problem. It's an attention problem. Bigger windows don't help if the model can't maintain quality across them. RLMs solve the quality problem, not the size problem.</p>
             </div>
         </div>
@@ -164,6 +164,7 @@
                     <li><strong>Docker</strong> -- Runs the REPL in a Docker container for isolation. Uses python:3.11-slim by default.</li>
                     <li><strong>Modal Sandboxes</strong> -- Cloud-based isolated execution via Modal. Full isolation from the host process.</li>
                     <li><strong>Prime Intellect Sandboxes</strong> -- Another cloud sandbox option, currently in beta.</li>
+                    <li><strong>IPython, Daytona, and E2B</strong> -- The library also lists <code>ipython</code>, <code>daytona</code>, and <code>e2b</code> as supported environments (<a href="https://github.com/alexzhang13/rlm" target="_blank">alexzhang13/rlm README</a>).</li>
                 </ul>
                 <p>For production use with untrusted inputs, isolated environments are non-negotiable -- the model is writing and executing arbitrary code. But for research and controlled settings, the local REPL is fast and simple.</p>
             </div>
@@ -178,7 +179,7 @@
             </div>
             <div>
                 <p>RLMs are already being adopted by major frameworks, which tells you something about how seriously the community is taking this.</p>
-                <p><strong>DSPy (v3.1.2+)</strong> -- Stanford's programmatic LLM framework has built-in RLM support. You can initialize an RLM with <code>dspy.RLM('articles, question -> trends: list[str]')</code> and it handles the REPL, sub-calls, and aggregation transparently. It supports using a smaller model for sub-calls via the <code>sub_lm</code> parameter to reduce costs.</p>
+                <p><strong>DSPy (v3.1.2+)</strong> -- Stanford's programmatic LLM framework has built-in RLM support. You can initialize an RLM with <code>dspy.RLM('articles, question -> trends: list[str]')</code> and it handles the REPL, sub-calls, and aggregation transparently. It supports using a smaller model for sub-calls via the <code>sub_lm</code> parameter to reduce costs. DSPy 3.4.1 (October 12, 2026) lets the code that <code>dspy.RLM</code> writes build DSPy sub-agents, including a nested <code>dspy.RLM</code> (<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.4.1" target="_blank">DSPy 3.4.1 release notes</a>).</p>
                 <p><strong>Google ADK</strong> -- Liam Connell (Google Cloud) published an enterprise-ready reimplementation of RLMs using Google's Agent Development Kit. The ADK version extends the original paper with two notable innovations: <strong>lazy file loading</strong> (the context object references files on disk or in GCS buckets rather than loading everything into memory) and <strong>parallelism</strong> (sub-calls can run concurrently rather than sequentially). The implementation pushed ADK's primitives to their limits -- the recursive nature required dropping down from LLMAgent to the bare-bones BaseAgent.</p>
                 <p><strong>Coding agents</strong> -- As several commentators have noted, tools like Claude Code and Gemini CLI already use sub-agent patterns that resemble RLMs. The difference is that these tools don't externalize the user prompt as a REPL variable, so they're still bounded by context limits on the input side. But the conceptual overlap suggests RLMs may become the default inference pattern for coding agents.</p>
             </div>
@@ -203,7 +204,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated February 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated October 2026.</p>
 </footer>
 
 <script>
