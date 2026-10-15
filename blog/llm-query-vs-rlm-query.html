@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the Difference Between llm_query and rlm_query in an RLM? | rlm.md</title>
+    <meta name="description" content="llm_query makes one plain model call. rlm_query starts a child RLM with its own REPL, but only when max_depth is 2 or more. Otherwise it falls back to llm_query.">
+    <meta name="keywords" content="llm_query, rlm_query, rlm_query_batched, recursive language model, RLM max_depth, sub-calls, dspy.RLM, recursion depth">
+    <link rel="canonical" href="https://rlm.md/blog/llm-query-vs-rlm-query.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/llm-query-vs-rlm-query.html">
+    <meta property="og:title" content="What Is the Difference Between llm_query and rlm_query in an RLM?">
+    <meta property="og:description" content="llm_query is one plain model call. rlm_query starts a child RLM with its own REPL, and silently falls back to llm_query at the default max_depth of 1.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Is the Difference Between llm_query and rlm_query in an RLM?">
+    <meta name="twitter:description" content="llm_query is one model call; rlm_query is a child RLM with its own REPL, but only when max_depth is 2 or more.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="llm_query, rlm_query, rlm_query_batched, recursive language model, RLM max_depth, sub-calls, dspy.RLM, recursion depth">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/llm-query-vs-rlm-query.html#article",
+      "headline": "What Is the Difference Between llm_query and rlm_query in an RLM?",
+      "description": "llm_query makes one plain model call. rlm_query starts a child RLM with its own REPL, but only when max_depth is 2 or more. Otherwise it falls back to llm_query.",
+      "url": "https://rlm.md/blog/llm-query-vs-rlm-query.html",
+      "datePublished": "2026-10-15",
+      "dateModified": "2026-10-15",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/llm-query-vs-rlm-query.html#article"
+      },
+      "wordCount": "1278"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is rlm_query part of the original RLM paper?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not by that name. The paper says the REPL exposes sub-LM and sub-RLM calls as modules. The function names llm_query and rlm_query come from the reference library, which added the recursive pair in February 2026."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my rlm_query call behave like llm_query?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The most likely cause is max_depth. It defaults to 1, and at that setting rlm_query falls back to a plain model call. Set max_depth=2 and use the local, ipython or docker environment to get a child RLM."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I pick a different model for rlm_query children?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. rlm_query takes an optional model argument, and the child RLM uses that model name in place of the parent's. Without it, the child inherits the parent's backend settings."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is rlm_query more expensive than llm_query?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Usually much more. A child RLM runs its own loop of up to max_iterations turns, and each turn can make further sub-calls. The library passes the parent's remaining max_budget and max_timeout to the child, so set those limits before you raise max_depth."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does dspy.RLM have rlm_query?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. dspy.RLM exposes llm_query and llm_query_batched. Since early October 2026 its main branch lets REPL code build a nested dspy.RLM as a sub-agent, which plays the same role."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Is the Difference Between llm_query and rlm_query in an RLM?</h1>
+        <p class="lead">Both functions live in the RLM&#x27;s REPL. One makes a single model call. The other starts a whole child RLM, when the settings let it.</p>
+    </div>
+
+    <div class="blog-meta">October 15, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> both are Python functions that RLM code calls inside the REPL. <code>llm_query</code> makes one plain model call and returns text. <code>rlm_query</code> starts a child RLM with its own REPL, which can run code and make its own sub-calls. In the reference library, <code>rlm_query</code> only recurses when <code>max_depth</code> is 2 or more. At the default of 1, it quietly becomes an <code>llm_query</code>.</p>
+
+        <h2>Does rlm_query actually exist?</h2>
+        <p>Yes, in the reference library. We read the source of <a href="https://github.com/alexzhang13/rlm">alexzhang13/rlm</a> on October 15, 2026. The local REPL puts four functions into the namespace of model-written code: <code>llm_query</code>, <code>llm_query_batched</code>, <code>rlm_query</code> and <code>rlm_query_batched</code> (see <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py">local_repl.py</a>). The recursive pair arrived in February 2026 with a commit titled "add depth&gt;1 recursive subcalls with limits and cost tracking." A parallel version of <code>rlm_query_batched</code> followed in March.</p>
+        <p><a href="https://github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py">dspy.RLM</a> has no function named <code>rlm_query</code>. Its built-in tools are <code>llm_query</code> and <code>llm_query_batched</code>. DSPy reaches recursion another way, covered below.</p>
+        <p>The <a href="https://arxiv.org/abs/2512.24601">RLM paper</a> does not name either function in its method text. It says the model gets a REPL "where all tools, including sub-LM or sub-RLM calls, are available as modules." The two library functions are those two kinds of call.</p>
+
+        <h2>What does llm_query do?</h2>
+        <p>It sends one prompt to a model and returns the reply as a string. The docstring calls it "a single plain completion (no REPL, no recursion)" and says it "always makes a direct LM call via the handler, regardless of depth." The child model sees only the prompt string. It cannot read the <code>context</code> variable, run code, or call anything else.</p>
+        <p>The library's <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py">system prompt</a> tells the root model to use it "for simple extraction, summarization, or Q&amp;A over a chunk of text," and says the sub-LLM "can handle around 500K chars." <code>llm_query_batched</code> sends a list of prompts at once and returns the answers in the same order.</p>
+        <p>Which model answers? The <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/core/lm_handler.py">LM handler</a> routes a request by depth. A call from the root's REPL goes to the model in <code>other_backends</code> if you set one, otherwise to the root model. A <code>model=</code> argument that names a registered client overrides that. This is how you run a large root model with a cheaper sub-call model, the setup the paper used with GPT-5 at the root and GPT-5-mini for sub-calls.</p>
+
+        <h2>What does rlm_query do?</h2>
+        <p>It hands the prompt to a callback, <code>_subcall</code>, in <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/core/rlm.py">rlm.py</a>. If depth allows, the callback builds a new <code>RLM</code> object one level deeper. The child gets a fresh REPL, with the prompt loaded as its own <code>context</code>. It inherits the backend, environment type, iteration cap and system prompt. It then runs the full loop: it writes code, reads output, calls sub-models, and ends with a final answer. The parent receives only that final string.</p>
+        <p>The child also receives what is left of the parent's limits. If you set <code>max_budget</code> or <code>max_timeout</code>, the child gets the remaining dollars and seconds. If either is spent, <code>rlm_query</code> returns an error string such as "Budget exhausted" and does not start a child. Custom tools pass down through <code>custom_sub_tools</code>.</p>
+        <p><code>rlm_query_batched</code> starts one child per prompt. It runs them in a thread pool capped by <code>max_concurrent_subcalls</code>, which defaults to 4, and keeps the output order. Our post on <a href="how-to-run-rlm-sub-calls-in-parallel-with-asyncio.html">running sub-calls in parallel</a> covers the same trade-off for plain calls.</p>
+
+        <h2>When does rlm_query fall back to llm_query?</h2>
+        <p>More often than the name suggests. There are three cases:</p>
+        <ul>
+            <li><strong>Default settings.</strong> <code>max_depth</code> defaults to 1. The <a href="https://github.com/alexzhang13/rlm/blob/main/docs/api/rlm.md">API docs</a> say that when <code>depth &gt;= max_depth</code>, <code>rlm_query()</code> "falls back to a plain <code>llm_query()</code> call (no REPL, no iteration)." With the default, the root never gets the callback, so every <code>rlm_query</code> is a plain call.</li>
+            <li><strong>The last level of a deeper tree.</strong> With <code>max_depth=2</code>, the root's <code>rlm_query</code> starts a child RLM. The child's own <code>rlm_query</code> would reach depth 2, so it becomes a plain call.</li>
+            <li><strong>Some sandboxes.</strong> The callback is passed only to the <code>local</code>, <code>ipython</code> and <code>docker</code> environments. The <code>modal</code>, <code>e2b</code>, <code>prime</code> and <code>daytona</code> environment files do not mention <code>rlm_query</code> at all. In those sandboxes, plan for plain calls only.</li>
+        </ul>
+        <p>The fallback is silent. Code that calls <code>rlm_query</code> still works, but you pay for a plain call and get a plain answer. If you expected a child to reason in code, check the trajectory log.</p>
+
+        <h2>How does this map to recursion depth in the paper?</h2>
+        <p>The paper evaluates "max recursion depths allowable to the RLM, from 0-3." It defines them this way: "Max recursion depth 0 is an RLM without sub-calling capabilities. Max recursion depth 1 allows sub-calling LLMs, while max depth &gt;1 allows sub-calling RLMs." It assumes depth 1 unless it says otherwise.</p>
+        <p>So paper depth 1 is a root that uses <code>llm_query</code>. That is the library default, <code>max_depth=1</code>. Paper depth 2 is a root whose <code>rlm_query</code> calls start child RLMs, and whose children make plain calls. That is <code>max_depth=2</code>. Most published RLM results, including the headline OOLONG and BrowseComp-Plus numbers, are depth 1 runs. They use <code>llm_query</code>, not <code>rlm_query</code>. Our post on <a href="how-deep-should-an-rlm-recurse.html">how deep an RLM should recurse</a> covers the depth sweep in detail.</p>
+
+        <h2>Which one should model code use?</h2>
+        <p>The library's own prompt draws the line. Use <code>llm_query</code> "for simple, one-shot tasks: extracting info from a chunk, summarizing text, answering a factual question, classifying content." Use <code>rlm_query</code> "when the subtask itself requires deeper thinking: multi-step reasoning, solving a sub-problem that needs its own REPL and iteration."</p>
+        <p>In practice, the deciding question is whether the sub-task input fits in one prompt. A 20,000-character chunk that needs a label is an <code>llm_query</code>. A sub-task whose input is itself too large to read in one call, such as one file of a large repository, is a candidate for <code>rlm_query</code>. The child can slice that input with code the same way the root does.</p>
+        <p>Cost and latency set the bar high. Each child runs its own loop of up to <code>max_iterations</code> turns, and each turn can fan out. The paper found that higher depths did worse on average with Qwen3-Coder-480B-A35B, because its frequent syntax errors carried into sub-RLM calls. Start at depth 1 and raise <code>max_depth</code> only when an evaluation shows a gain.</p>
+
+        <h2>What does DSPy offer instead of rlm_query?</h2>
+        <p>dspy.RLM exposes <code>llm_query</code> and <code>llm_query_batched</code>, both backed by <code>sub_lm</code>, and caps all sub-calls with <code>max_llm_calls</code> (default 50). Since a DSPy commit on October 2, 2026 ("Implement sub-dspy interpreters"), the main branch also lets REPL code build DSPy modules as sub-agents. Its prompt lists <code>dspy.RLM("context, query -&gt; answer")</code> as "a recursive sub-agent with its own REPL on the same interpreter backend as yours." It calls this "the heaviest option" and tells the model to prefer <code>llm_query</code> for one-shot prompts.</p>
+        <p>That is the DSPy equivalent of <code>rlm_query</code>, under a different name and with a typed signature. It is new, so check that your installed release includes it. Our comparison of <a href="dspy-rlm-vs-reference-rlm-library.html">dspy.RLM and the reference library</a> predates this change.</p>
+
+        <h2>The bottom line</h2>
+        <p><code>llm_query</code> is one model call on one prompt. <code>rlm_query</code> is a full child RLM with its own REPL and its own sub-calls. In the reference library, you get the second only with <code>max_depth</code> of 2 or more, in the <code>local</code>, <code>ipython</code> or <code>docker</code> environment. Everywhere else it falls back to the first. Most RLM work, including the paper's main results, needs only <code>llm_query</code>. Reach for <code>rlm_query</code> when a sub-task's input is too large or too hard for one call.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601. Definition of recursion depths 0 to 3, default depth 1, GPT-5 root with GPT-5-mini sub-calls, and the finding that Qwen3-Coder did worse at higher depths. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. L., et al. "rlm/environments/local_repl.py" source, alexzhang13/rlm, read October 15, 2026. Definitions of llm_query, llm_query_batched, rlm_query and rlm_query_batched, and the fallback logic. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py">github.com/alexzhang13/rlm/blob/main/rlm/environments/local_repl.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/rlm.py" source, alexzhang13/rlm. The _subcall method that spawns child RLMs, depth cap, budget and timeout propagation, and which environments receive the subcall callback. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/core/rlm.py">github.com/alexzhang13/rlm/blob/main/rlm/core/rlm.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/core/lm_handler.py" source, alexzhang13/rlm. Routing of sub-call requests by depth and model name. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/core/lm_handler.py">github.com/alexzhang13/rlm/blob/main/rlm/core/lm_handler.py</a></li>
+            <li>Zhang, A. L., et al. "rlm/utils/prompts.py" source, alexzhang13/rlm. System prompt guidance on when to use llm_query versus rlm_query. <a href="https://github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py">github.com/alexzhang13/rlm/blob/main/rlm/utils/prompts.py</a></li>
+            <li>alexzhang13/rlm. "RLM API reference" (docs/api/rlm.md). max_depth default of 1 and the documented fallback of rlm_query to llm_query. <a href="https://github.com/alexzhang13/rlm/blob/main/docs/api/rlm.md">github.com/alexzhang13/rlm/blob/main/docs/api/rlm.md</a></li>
+            <li>Stanford NLP. "dspy/predict/rlm.py" source, stanfordnlp/dspy main branch, read October 15, 2026. Built-in llm_query tools, max_llm_calls, and sub-agent guidance including nested dspy.RLM. <a href="https://github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py">github.com/stanfordnlp/dspy/blob/main/dspy/predict/rlm.py</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is rlm_query part of the original RLM paper?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not by that name. The paper says the REPL exposes sub-LM and sub-RLM calls as modules. The function names llm_query and rlm_query come from the reference library, which added the recursive pair in February 2026.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why does my rlm_query call behave like llm_query?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The most likely cause is max_depth. It defaults to 1, and at that setting rlm_query falls back to a plain model call. Set max_depth=2 and use the local, ipython or docker environment to get a child RLM.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I pick a different model for rlm_query children?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. rlm_query takes an optional model argument, and the child RLM uses that model name in place of the parent&#x27;s. Without it, the child inherits the parent&#x27;s backend settings.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is rlm_query more expensive than llm_query?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Usually much more. A child RLM runs its own loop of up to max_iterations turns, and each turn can make further sub-calls. The library passes the parent&#x27;s remaining max_budget and max_timeout to the child, so set those limits before you raise max_depth.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does dspy.RLM have rlm_query?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. dspy.RLM exposes llm_query and llm_query_batched. Since early October 2026 its main branch lets REPL code build a nested dspy.RLM as a sub-agent, which plays the same role.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
