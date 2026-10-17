@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [How Do You Run RLM-Qwen3-8B Locally with vLLM? | rlm.md](https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html)
 - [What Is the Difference Between llm_query and rlm_query in an RLM? | rlm.md](https://rlm.md/blog/llm-query-vs-rlm-query.html)
 - [Can You Use an RLM Through an MCP Server? | rlm.md](https://rlm.md/blog/can-you-use-an-rlm-through-an-mcp-server.html)
 - [What Should max_iterations Be for an RLM? | rlm.md](https://rlm.md/blog/what-should-max-iterations-be-for-an-rlm.html)

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Do You Run RLM-Qwen3-8B Locally with vLLM? | rlm.md</title>
+    <meta name="description" content="Serve mit-oasys/rlm-qwen3-8b-v0.1 with vllm serve, point rlms at it with backend vllm, cap context at 32K, and match the FINAL prompt format it was trained on.">
+    <meta name="keywords" content="RLM-Qwen3-8B, vLLM, recursive language models, rlms, local inference, Qwen3-8B, OpenAI-compatible server, KV cache, system prompt">
+    <link rel="canonical" href="https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html">
+    <meta property="og:title" content="How Do You Run RLM-Qwen3-8B Locally with vLLM?">
+    <meta property="og:description" content="RLM-Qwen3-8B runs on one vLLM server and the rlms library. The weights are easy; matching the 32K prompt and answer format it was trained on is the hard part.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="How Do You Run RLM-Qwen3-8B Locally with vLLM?">
+    <meta name="twitter:description" content="How to serve RLM-Qwen3-8B with vLLM and wire it into the rlms library without breaking its trained prompt format.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="RLM-Qwen3-8B, vLLM, recursive language models, rlms, local inference, Qwen3-8B, OpenAI-compatible server, KV cache, system prompt">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html#article",
+      "headline": "How Do You Run RLM-Qwen3-8B Locally with vLLM?",
+      "description": "Serve mit-oasys/rlm-qwen3-8b-v0.1 with vllm serve, point rlms at it with backend vllm, cap context at 32K, and match the FINAL prompt format it was trained on.",
+      "url": "https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html",
+      "datePublished": "2026-10-17",
+      "dateModified": "2026-10-17",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/how-to-run-rlm-qwen3-8b-locally-with-vllm.html#article"
+      },
+      "wordCount": "1264"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is RLM-Qwen3-8B a LoRA adapter or a full model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It is a full fine-tune. The Hugging Face repo holds four safetensors shards, a Qwen3ForCausalLM config, and about 8.19 billion BF16 parameters. You load it in vLLM the same way you load base Qwen3-8B."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can the root model and the sub-call model share one vLLM server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. If you pass no other backend, the reference library sends sub-calls to the root backend. That means RLM-Qwen3-8B answers its own sub-calls. The paper trained with plain Qwen3-8B leaves, so a second server on another port matches that setup more closely."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need YaRN or a 128K context for long documents?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Usually not. An RLM keeps the long input in a REPL variable and only pulls slices into the window. Qwen advises against YaRN when contexts stay under 32,768 tokens, and the paper's prompt for this model assumes about 32K."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my local RLM never return a final answer?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The likely cause is a prompt mismatch. RLM-Qwen3-8B learned to finish with FINAL or FINAL_VAR, but the library's default since May 2026 waits for an answer dict with ready set to True. Pin an older rlms release or supply the paper's prompt with custom_system_prompt."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What API key does the RLM client send to a local vLLM server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "None, unless you pass one. The client only looks up keys from environment variables for a few hosted URLs. Set api_key in backend_kwargs to the same value you gave vllm serve with --api-key."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>How Do You Run RLM-Qwen3-8B Locally with vLLM?</h1>
+        <p class="lead">The weights are public and vLLM serves them with one command. The catch is the scaffold: the model expects a 32K-aware prompt and a final-answer format the library has since replaced.</p>
+    </div>
+
+    <div class="blog-meta">October 17, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> RLM-Qwen3-8B is real. Its weights are on Hugging Face as <code>mit-oasys/rlm-qwen3-8b-v0.1</code>, a full BF16 fine-tune of Qwen3-8B with an MIT license tag. Serve it with <code>vllm serve</code>, then point the <code>rlms</code> library at the local endpoint with <code>backend="vllm"</code> and a <code>base_url</code>. Two details decide whether it works: keep the context at about 32K tokens, and use the prompt format the model was trained on, which the current library no longer ships by default.</p>
+
+        <h2>What exactly is RLM-Qwen3-8B, and where are the weights?</h2>
+        <p>It is the small model the authors post-trained in the <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models paper</a> by Zhang, Kraska and Khattab. They fine-tuned Qwen3-8B on 1,000 filtered trajectories of Qwen3-Coder-480B-A35B acting as an RLM with Qwen3-8B sub-calls, on LongBenchPro tasks. The paper reports that it beats base Qwen3-8B as an RLM by a median of 28.3% across four tasks, and runs more than 3 times faster because it makes fewer mistakes.</p>
+        <p>The <a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1">model card</a> lists the name as RLM-Qwen3-8B-v0.1. It says the model "was trained on trajectories produced using a fixed system prompt" and "assumes the environment/scaffold from our RLM repo." It also recommends "using vLLM with our inference code" from <a href="https://github.com/alexzhang13/rlm">alexzhang13/rlm</a>. The repo holds four safetensors shards and a <code>Qwen3ForCausalLM</code> config. It is not a LoRA adapter, so you load it like any other 8B model.</p>
+
+        <h2>How much GPU memory does it need?</h2>
+        <p>Start with the numbers in the published files. The Hugging Face metadata counts 8,190,735,360 BF16 parameters. At 2 bytes each, the weights alone take about 16.4 GB. The <a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1/blob/main/config.json">config.json</a> gives 36 layers, 8 key-value heads and a head dimension of 128. That works out to 147,456 bytes of KV cache per token in BF16, or about 4.8 GB for one full 32,768-token sequence.</p>
+        <p>So a 24 GB card holds the weights plus roughly one full-length sequence, with little room to spare. That matters for an RLM because <code>llm_query_batched</code> sends several sub-calls at once, and each live sequence needs its own cache. Our <a href="kv-cache-vram-for-128k-context.html">KV cache sizing guide</a> walks through the formula. We have not benchmarked this model on specific cards, so treat these figures as a floor, not a fit test.</p>
+        <p>The <a href="https://github.com/vllm-project/vllm/blob/main/docs/configuration/conserving_memory.md">vLLM memory guide</a> lists the levers when you run out. Lower <code>max_model_len</code> to cap the context, lower <code>max_num_seqs</code> to cap batch size, use a quantized checkpoint, or split the model across GPUs with tensor parallelism. Its <a href="https://github.com/vllm-project/vllm/blob/main/docs/configuration/optimization.md">optimization page</a> says vLLM pre-allocates KV cache from the <code>gpu_memory_utilization</code> fraction, so raising it gives more cache space.</p>
+
+        <h2>How do you start the vLLM server?</h2>
+        <p>vLLM's <a href="https://github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md">OpenAI-compatible server</a> exposes <code>/v1/chat/completions</code>, which is the endpoint the RLM client calls. A minimal launch looks like this:</p>
+        <p><code>vllm serve mit-oasys/rlm-qwen3-8b-v0.1 --port 8000 --max-model-len 32768 --api-key token-abc123</code></p>
+        <p>Each flag appears in the vLLM docs. <code>--port</code> and <code>--max-model-len</code> are in the <a href="https://github.com/vllm-project/vllm/blob/main/docs/cli/README.md">CLI reference</a>, which also accepts <code>32K</code> as shorthand for 32,768. <code>--api-key</code> is in the server guide, which warns that the key only guards the <code>/v1</code>, <code>/v2</code> and <code>/inference</code> paths. Other endpoints stay open, so bind to localhost or put the server behind a proxy.</p>
+        <p>Add <code>--tensor-parallel-size 2</code> if you split across two GPUs. If you want the base Qwen3-8B as a separate sub-call model, run a second <code>vllm serve Qwen/Qwen3-8B</code> on another port.</p>
+
+        <h2>How do you point the RLM library at the local endpoint?</h2>
+        <p>In the reference library, <code>backend="vllm"</code> routes to the same <code>OpenAIClient</code> used for OpenAI. The only difference is an assertion: <code>base_url</code> "is required to be set to local vLLM server address." The model name must match what vLLM serves, which by default is the Hugging Face path.</p>
+        <ol>
+          <li>Install the library: <code>pip install rlms</code>.</li>
+          <li>Create the RLM with <code>backend="vllm"</code> and <code>backend_kwargs={"model_name": "mit-oasys/rlm-qwen3-8b-v0.1", "base_url": "http://localhost:8000/v1", "api_key": "token-abc123"}</code>.</li>
+          <li>Pass the key explicitly. The client only fills in an API key from environment variables for OpenAI, OpenRouter, Vercel and Prime Intellect URLs, so a local URL gets none.</li>
+          <li>Call <code>rlm.completion(...)</code> as usual.</li>
+        </ol>
+        <p>Sub-calls go to the root backend unless you say otherwise. To send them to a second server, pass <code>other_backends=["vllm"]</code> and a matching <code>other_backend_kwargs</code> list. The constructor accepts exactly one extra backend. This mirrors the training setup, where the root was an RLM and the leaves were plain Qwen3-8B. Our post on <a href="what-base-model-do-you-need-for-an-rlm.html">what base model an RLM needs</a> covers why a strong root with cheap leaves works.</p>
+
+        <h2>Which system prompt and answer format does the model expect?</h2>
+        <p>This is the step most likely to break a local run. The paper's appendix shows the prompt used for Qwen3-8B. It tells the model it has "a total context window of approximately ~32k tokens," that sub-LLMs share "this same ~32k token limit," and to aim for about 10K to 15K characters per <code>llm_query</code> call. The model learned to finish with <code>FINAL(...)</code> or <code>FINAL_VAR(...)</code>. The authors note that 16% of raw teacher turns misused <code>FINAL</code> and 13% misused <code>FINAL_VAR</code>, so they patched those before training.</p>
+        <p>The library has moved on since then. A commit on May 13, 2026, titled "new dict-based final answer format," changed the default prompt. It now asks the model to set <code>answer["content"]</code> and <code>answer["ready"] = True</code>, and the main branch no longer mentions <code>FINAL</code> in its prompts or REPL code. The new default also tells the root that the sub-LLM window is about 500K characters, which is far too large for an 8B leaf.</p>
+        <p>You have two fixes. Pin a release from before the change: <code>rlms</code> 0.1.1 went to PyPI on February 18, 2026, and 0.1.2 followed on May 28. Or keep the current release and pass the paper's Qwen3-8B prompt through <code>custom_system_prompt</code>. Either way, check that the model's final answers actually end the loop before you trust any benchmark number.</p>
+
+        <h2>What context length and sampling settings should you use?</h2>
+        <p>Stay near 32K. The <a href="https://huggingface.co/Qwen/Qwen3-8B">Qwen3-8B card</a> gives a native context of 32,768 tokens and 131,072 with YaRN. The fine-tune's config keeps <code>max_position_embeddings</code> at 40,960 with no rope scaling. Qwen explains that 40,960 reserves 32,768 tokens for output and 8,192 for the prompt. It also advises against YaRN when contexts stay under 32,768, because static YaRN can hurt shorter texts. An RLM rarely needs more, because the long input lives in the REPL as a variable, not in the window. The authors also filtered out training turns past about 100K characters.</p>
+        <p>Set sampling values yourself. vLLM applies a model's <code>generation_config.json</code> by default. The base Qwen3-8B file sets temperature 0.6, top_p 0.95 and top_k 20, but the RLM fine-tune's file carries no sampling values at all. The paper says it used Qwen's recommended sampling parameters, and Qwen warns against greedy decoding for thinking mode. Pass them through <code>sampling_args</code> for the root and <code>sub_sampling_args</code> for the leaves. vLLM takes <code>top_k</code> through <code>extra_body</code>, and the RLM client merges an <code>extra_body</code> key from <code>sampling_args</code>. For split settings, see <a href="different-temperatures-for-rlm-root-and-sub-calls.html">different temperatures for root and sub-calls</a>.</p>
+
+        <h2>The bottom line</h2>
+        <p>Running RLM-Qwen3-8B locally takes one <code>vllm serve</code> command and a few lines of Python. Budget about 16.4 GB for the weights plus KV cache for each concurrent sub-call. Cap the context at 32,768. Give the client an explicit <code>base_url</code> and API key, and set Qwen's sampling values by hand. Most of all, match the scaffold the model learned: a 32K-aware prompt and the <code>FINAL</code> answer format. The model card says it "assumes the environment/scaffold from our RLM repo," and the scaffold has changed since the weights shipped.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601. RLM-Qwen3-8B training recipe (1,000 filtered trajectories, Qwen3-8B sub-calls, LongBenchPro), 28.3% median gain, more than 3x speed, ~100K-character filter, FINAL/FINAL_VAR error rates, and the 32K Qwen3-8B system prompt diff. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>MIT OASYS. "RLM-Qwen3-8B-v0.1." Hugging Face model card and config.json, read October 17, 2026. Model name, MIT license tag, fixed-prompt and scaffold statements, vLLM recommendation, parameter count, layer and KV-head counts, max_position_embeddings of 40,960. <a href="https://huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1">huggingface.co/mit-oasys/rlm-qwen3-8b-v0.1</a></li>
+            <li>Zhang, A. L., et al. alexzhang13/rlm source (rlm/clients/__init__.py, rlm/clients/openai.py, rlm/core/rlm.py, rlm/utils/prompts.py), read October 17, 2026. The vllm backend and base_url assertion, API key lookup, other_backends limit, sampling_args plumbing, and the current answer-dict prompt with its 500K-character sub-LLM line. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>alexzhang13/rlm commit history for rlm/utils/prompts.py. Commit of May 13, 2026, "new dict-based final answer format." <a href="https://github.com/alexzhang13/rlm/commits/main/rlm/utils/prompts.py">github.com/alexzhang13/rlm/commits/main/rlm/utils/prompts.py</a></li>
+            <li>Python Package Index. "rlms" release history. Version 0.1.1 published February 18, 2026; 0.1.2 published May 28, 2026. <a href="https://pypi.org/project/rlms/">pypi.org/project/rlms</a></li>
+            <li>vLLM project. "OpenAI-Compatible Server." vLLM documentation. vllm serve, --api-key scope warning, generation_config.json default and --generation-config vllm, extra_body for top_k. <a href="https://github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md">github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md</a></li>
+            <li>vLLM project. "Conserving Memory" and "Optimization and Tuning." vLLM documentation. max_model_len, max_num_seqs, quantization, tensor parallelism, and gpu_memory_utilization. <a href="https://github.com/vllm-project/vllm/blob/main/docs/configuration/conserving_memory.md">github.com/vllm-project/vllm/blob/main/docs/configuration/conserving_memory.md</a></li>
+            <li>vLLM project. "vLLM CLI Guide." vLLM documentation. --port, --max-model-len and the 32K size shorthand. <a href="https://github.com/vllm-project/vllm/blob/main/docs/cli/README.md">github.com/vllm-project/vllm/blob/main/docs/cli/README.md</a></li>
+            <li>Qwen Team. "Qwen3-8B." Hugging Face model card and generation_config.json. 32,768 native and 131,072 YaRN context, 40,960 default explanation, YaRN caution, recommended sampling values and no greedy decoding. <a href="https://huggingface.co/Qwen/Qwen3-8B">huggingface.co/Qwen/Qwen3-8B</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is RLM-Qwen3-8B a LoRA adapter or a full model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It is a full fine-tune. The Hugging Face repo holds four safetensors shards, a Qwen3ForCausalLM config, and about 8.19 billion BF16 parameters. You load it in vLLM the same way you load base Qwen3-8B.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can the root model and the sub-call model share one vLLM server?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. If you pass no other backend, the reference library sends sub-calls to the root backend. That means RLM-Qwen3-8B answers its own sub-calls. The paper trained with plain Qwen3-8B leaves, so a second server on another port matches that setup more closely.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do I need YaRN or a 128K context for long documents?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Usually not. An RLM keeps the long input in a REPL variable and only pulls slices into the window. Qwen advises against YaRN when contexts stay under 32,768 tokens, and the paper&#x27;s prompt for this model assumes about 32K.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why does my local RLM never return a final answer?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The likely cause is a prompt mismatch. RLM-Qwen3-8B learned to finish with FINAL or FINAL_VAR, but the library&#x27;s default since May 2026 waits for an answer dict with ready set to True. Pin an older rlms release or supply the paper&#x27;s prompt with custom_system_prompt.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What API key does the RLM client send to a local vLLM server?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">None, unless you pass one. The client only looks up keys from environment variables for a few hosted URLs. Set api_key in backend_kwargs to the same value you gave vllm serve with --api-key.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
