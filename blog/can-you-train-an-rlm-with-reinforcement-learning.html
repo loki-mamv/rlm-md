@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can You Train an RLM with Reinforcement Learning Instead of Distillation? | rlm.md</title>
+    <meta name="description" content="Yes. RLM-Qwen3-8B was distilled, but the RLM paper also RL-trained a Qwen3-4B RLM that generalized from 64k to 1M tokens. Rewards, credit, and cost explained.">
+    <meta name="keywords" content="recursive language models, RLM, reinforcement learning, RLVR, GRPO, distillation, RLM-Qwen3-8B, prime-rl, credit assignment">
+    <link rel="canonical" href="https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html">
+    <meta property="og:title" content="Can You Train an RLM with Reinforcement Learning Instead of Distillation?">
+    <meta property="og:description" content="RLM-Qwen3-8B was trained by distillation, but the RLM paper&#x27;s v3 also reports an RLVR run on Qwen3-4B. Here is what was done and how to approach RL for RLMs.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Can You Train an RLM with Reinforcement Learning Instead of Distillation?">
+    <meta name="twitter:description" content="RLMs can be trained with RL: a Qwen3-4B RLVR run generalized from 64k to 1M tokens, and an RL-trained 30B adapter is public.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="recursive language models, RLM, reinforcement learning, RLVR, GRPO, distillation, RLM-Qwen3-8B, prime-rl, credit assignment">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html#article",
+      "headline": "Can You Train an RLM with Reinforcement Learning Instead of Distillation?",
+      "description": "Yes. RLM-Qwen3-8B was distilled, but the RLM paper also RL-trained a Qwen3-4B RLM that generalized from 64k to 1M tokens. Rewards, credit, and cost explained.",
+      "url": "https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html",
+      "datePublished": "2026-10-20",
+      "dateModified": "2026-10-20",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html#article"
+      },
+      "wordCount": "1534"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is RLM-Qwen3-8B trained with reinforcement learning?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It was trained by rejection fine-tuning on about 1,000 filtered trajectories from Qwen3-Coder-480B-A35B running as an RLM. Training used prime-rl with a batch size of 64 for 300 steps, about 48 H100 hours."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What did the RL experiment in the RLM paper show?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Qwen3-4B-Instruct model trained as a depth-1 RLM with verifiable rewards on the 32k-64k token, 2-needle split of MRCRv2 generalized to the 512K-1M token, 8-needle split. The run used 150 steps, a batch size of 128, and 4 rollouts per example. The exact scores are shown only in the paper's Figure 3b chart."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do you need to train the sub-call model too?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not to get started. The RLM paper trained only the root model and argues that sub-calls are essentially general-purpose LLM requests. Keeping the sub-call model frozen also makes credit assignment simpler."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I RL-train an RLM with open-source tools today?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The reference rlm repository has a training folder with a verifiers-compatible environment, a reward rubric, and an example prime-rl config for Qwen3-30B-A3B on an OOLONG environment. You still need to write an environment and correctness function for your own task."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a released RLM that was trained with RL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The mit-oasys/rlm-qwen3-30b-a3b-v0.1 adapter on Hugging Face was trained with RL and verifiable rewards using prime-rl. It is a LoRA adapter, so it needs the Qwen3-30B-A3B-Instruct-2507 base model."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I distill before running RL on an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Usually yes. A root model that already writes valid REPL code wastes fewer expensive rollouts on syntax errors and empty answers. The RLM paper ran its SFT and RL experiments separately, so this order is untested on RLMs."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Can You Train an RLM with Reinforcement Learning Instead of Distillation?</h1>
+        <p class="lead">RLM-Qwen3-8B was distilled from a larger model, but the same group has also trained RLMs with RL. Here is what each approach did, and what RL training an RLM requires.</p>
+    </div>
+
+    <div class="blog-meta">October 20, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> Yes, and the original RLM paper already did a small version of it. RLM-Qwen3-8B was trained by distillation (rejection fine-tuning on filtered trajectories from Qwen3-Coder-480B-A35B), but the May 2026 revision of the same paper also reports a separate run that trained a Qwen3-4B-Instruct model as an RLM with reinforcement learning from verifiable rewards. That run generalized from a 32k-64k token task to a 512K-1M token one. The authors have since released an RL-trained adapter, RLM-Qwen3-30B-A3B, and the <code>prime-rl</code> harness that trained it.</p>
+
+        <h2>How was RLM-Qwen3-8B actually trained?</h2>
+        <p>By supervised fine-tuning, not RL. Appendix A of <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a> (Zhang, Kraska, Khattab, v3 dated 11 May 2026) says the authors ran Qwen3-Coder-480B-A35B-Instruct as an RLM root, with Qwen3-8B handling sub-calls, on 750 English LongBenchPro tasks. That produced 2,250 candidate trajectories. They removed runs that scored exactly 0.0 or never went past one turn, which left 1,072. The paper's main text rounds this to "1,000 filtered trajectories."</p>
+        <p>Each root turn then became its own training sample, turns past roughly 100k characters were dropped, and a script fixed templated mistakes such as misuse of <code>FINAL</code> and <code>FINAL_VAR</code>. Training used the <code>prime-rl</code> library with a batch size of 64 for 300 steps, about 48 H100 hours. The Figure 3 caption calls this "rejection fine-tuning" on distilled trajectories. The result beat the base Qwen3-8B by a median of 28.3% across the paper's four tasks.</p>
+        <p>The authors explain why they trained only the root: leaf sub-calls are "essentially general-purpose LLM requests," and "the major hurdle is learning to operate as the root model." We covered the data side of this, and why the trajectories were never released, in <a href="public-dataset-of-rlm-trajectories-for-fine-tuning.html">our post on public RLM trajectory datasets</a>.</p>
+
+        <h2>Did anyone train an RLM with reinforcement learning?</h2>
+        <p>The same paper did, at small scale. Observation 6 in v3 describes training a Qwen3-4B-Instruct model as an RLM at depth 1 on MRCRv2, a synthetic task where the model must count and reproduce instances of a text in a corpus. The authors trained "purely through reinforcement learning with verifiable rewards (RLVR)" on the 32k-64k token split with 2 needles, for 150 steps, with a batch size of 128 and 4 rollouts per example. Each turn was capped at 4,096 output tokens and each rollout at 20 RLM iterations.</p>
+        <p>Every 50 steps they evaluated on the 512K-1M token split with 8 needles, and the paper reports that the RL-trained RLM generalizes to it. The exact scores appear only in a chart (Figure 3b), which also plots Gemini 3.1 Pro as a 1M-context reference, so we do not quote numbers here. The paper does not name the policy-gradient algorithm for this run. Note that the paper labels the model "Qwen3-4B-Instruct-0527," while the public Qwen3-4B instruct checkpoint is tagged 2507.</p>
+        <p>The second, larger example is the <a href="https://huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1">RLM-Qwen3-30B-A3B adapter</a> from the same MIT group. Its model card says it was trained "using RL" with verifiable rewards and <code>prime-rl</code>, as a LoRA (rank 32, alpha 64) on Qwen3-30B-A3B-Instruct-2507, at depth 1, on 8 A100s. The card reports gains over the base model with the same prompt hint, for example 24.0 to 47.2 on OOLONG <code>trec_coarse</code> at 132k and 18.7 to 29.7 on BrowseComp-Plus. These are the authors' own numbers.</p>
+        <p>The code is in the <code>training/</code> folder of the <a href="https://github.com/alexzhang13/rlm">reference <code>rlm</code> repository</a>: a <code>verifiers</code>-compatible environment for <code>rlm.RLM</code> at depth 1, a reward rubric, and an example config. Other public work has not trained RLMs. The reproduction study <a href="https://arxiv.org/abs/2603.02615">Think, But Don't Overthink</a> (Daren Wang, March 2026) only evaluates existing models. Prime Intellect's <a href="https://primeintellect.ai/blog/rlm">January 2026 RLM post</a> shipped an experimental <code>RLMEnv</code> but described RL training as future work.</p>
+
+        <h2>Which RL methods fit a multi-turn REPL agent?</h2>
+        <p>The common starting point is GRPO from <a href="https://arxiv.org/abs/2402.03300">DeepSeekMath</a> (Shao et al., 2024). GRPO drops PPO's value model and instead uses the average reward of a group of outputs sampled for the same question as the baseline. That matters for RLMs because a critic over a long, branching REPL transcript is expensive and hard to fit. The "4 rollouts per example" in the paper's MRCRv2 run is exactly this kind of group.</p>
+        <p>Multi-turn agent RL adds problems that single-answer math RL does not have. <a href="https://arxiv.org/abs/2504.20073">RAGEN</a> (Wang et al., 2025) frames agent training as trajectory-level optimization (StarPO) and reports an "Echo Trap," where reward variance collapses and gradients spike. Their stabilized variant filters trajectories and adds a critic. They also report that without fine-grained, reasoning-aware rewards, useful reasoning does not reliably emerge, and agents fall back to shallow strategies.</p>
+        <p>The closest analogue to recursive sub-calls is <a href="https://arxiv.org/abs/2510.11967">Context-Folding</a> (Sun et al., 2025). Its agent branches into a sub-trajectory for a subtask and folds it back to a summary, which is close to how an RLM hands a slice to a sub-call and keeps only the result. It trains this end to end with FoldGRPO, which adds process rewards for decomposition and context management, and reports an active context 10 times smaller than ReAct baselines.</p>
+
+        <h2>What reward should a long-context RLM get?</h2>
+        <p>Start with tasks that have checkable answers. That is why both the paper's RL run (MRCRv2) and Prime Intellect's environments (Oolong, math-python, verbatim-copy, DeepDive) use scored outputs instead of a judge model. Practical reward terms, roughly in order of how safe they are:</p>
+        <ul>
+        <li><strong>Outcome correctness.</strong> Exact match, F1, or the task's own metric on the final answer. The reference rubric (<code>RLMTrainRubric</code>) uses a single correctness function as its only reward.</li>
+        <li><strong>Behavior gates.</strong> The same rubric can zero the reward when a rollout uses fewer than a minimum number of REPL iterations (default 2) or sub-calls (default 0). This stops the policy from answering in one turn without reading the context.</li>
+        <li><strong>Cost terms.</strong> A penalty per sub-call or per token. Add these carefully: a policy can learn to skip sub-calls and guess, which looks cheap and scores badly on harder splits.</li>
+        </ul>
+        <p>The rubric also logs iterations, REPL calls, sub-calls, and whether a final answer exists as metrics, not rewards. Watch them: a falling sub-call count with flat accuracy is an early sign of reward hacking.</p>
+        <p>Measure the trained model the way you would any RLM, on held-out lengths and task types. Our <a href="how-to-evaluate-a-recursive-language-model.html">guide to evaluating an RLM</a> covers that setup.</p>
+
+        <h2>How do you assign credit across recursive sub-calls?</h2>
+        <p>With outcome-only GRPO, you do not, at least not directly. DeepSeekMath's outcome supervision gives every token in an output the same normalized reward, so every root turn in a trajectory gets the same advantage. A good <code>llm_query</code> and a wasted one are pushed in the same direction if the final answer is right.</p>
+        <p>There are three ways to do better. You can freeze the sub-call model and train only the root, which is what the RLM paper did in both its SFT and RL runs, so sub-call quality becomes part of the environment. You can add process rewards, as DeepSeekMath's process supervision and FoldGRPO do, to score steps such as a well-scoped sub-call. Or you can treat each sub-call as its own episode with its own verifiable target, which only works when the sub-task has a checkable answer. The first is the simplest and the only one demonstrated on an RLM so far. In the reference harness, sub-calls go through a proxy to the trainer's inference server, so they are part of the environment, not tokens the trainer updates.</p>
+
+        <h2>How expensive are RLM rollouts for RL?</h2>
+        <p>Much more than single-turn RL. One rollout is a full RLM trajectory: up to 20 root iterations in the paper's setup, each of which may fire many sub-calls, plus REPL execution time. Prime Intellect's environment uses a 120-second timeout per REPL call by default. Group sampling multiplies all of this by the group size.</p>
+        <p>The example config in the reference repo shows the scale of a modest run: 200 steps, a batch size of 32 with 2 rollouts per example, 4 GPUs for training and 4 for inference, and filters that drop zero-advantage and repetitive rollouts. The paper does not report compute for its RL run, only the 48 H100 hours for the SFT run. Two levers cut the bill: train on short splits and rely on length generalization, as the MRCRv2 run did, and run sub-calls in parallel, which the paper lists as future work. If you plan to try this, distill first: an SFT-warmed root gives RL a policy that already produces valid REPL code, so fewer rollouts are wasted on syntax errors. Base-model choice matters for the same reason, as covered in <a href="what-base-model-do-you-need-for-an-rlm.html">what base model you need for an RLM</a>.</p>
+
+        <h2>The bottom line</h2>
+        <p>RL works for RLMs. The paper shows a Qwen3-4B RLM trained with verifiable rewards that generalizes from 64k to 1M-token inputs, and the released RLM-Qwen3-30B-A3B adapter is RL-trained. The headline model, RLM-Qwen3-8B, is a distillation result. For your own run, use GRPO-style group sampling, verifiable outcome rewards, a frozen sub-call model, and an SFT warm start. Treat credit assignment across sub-calls and rollout cost as the two unsolved parts.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601, v3, May 2026. RLM-Qwen3-8B SFT recipe (Appendix A) and the Qwen3-4B RLVR experiment on MRCRv2. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang, D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Evaluation-only reproduction at depth 1 and 2; no training. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+            <li>Shao, Z., et al. "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models." arXiv:2402.03300, 2024. Introduces GRPO, group baselines, outcome and process supervision. <a href="https://arxiv.org/abs/2402.03300">arxiv.org/abs/2402.03300</a></li>
+            <li>Wang, Z., et al. "RAGEN: Understanding Self-Evolution in LLM Agents via Multi-Turn Reinforcement Learning." arXiv:2504.20073, 2025. StarPO, the Echo Trap, and reward design for multi-turn agent RL. <a href="https://arxiv.org/abs/2504.20073">arxiv.org/abs/2504.20073</a></li>
+            <li>Sun, W., et al. "Scaling Long-Horizon LLM Agent via Context-Folding." arXiv:2510.11967, October 2025. FoldGRPO with process rewards for branch-and-fold sub-trajectories. <a href="https://arxiv.org/abs/2510.11967">arxiv.org/abs/2510.11967</a></li>
+            <li>MIT OASYS. "rlm-qwen3-30b-a3b-v0.1" model card. Hugging Face. RL-trained RLM LoRA adapter, training setup and reported scores. <a href="https://huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1">huggingface.co/mit-oasys/rlm-qwen3-30b-a3b-v0.1</a></li>
+            <li>Zhang, A. L., et al. "rlm" reference repository, training/ folder. GitHub. prime-rl harness, RLMTrainRubric reward, example RL config. <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></li>
+            <li>Prime Intellect. "Recursive Language Models: the paradigm of 2026." Prime Intellect blog, January 2026. Experimental RLMEnv in verifiers and prime-rl; RL training described as future work. <a href="https://primeintellect.ai/blog/rlm">primeintellect.ai/blog/rlm</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is RLM-Qwen3-8B trained with reinforcement learning?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. It was trained by rejection fine-tuning on about 1,000 filtered trajectories from Qwen3-Coder-480B-A35B running as an RLM. Training used prime-rl with a batch size of 64 for 300 steps, about 48 H100 hours.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What did the RL experiment in the RLM paper show?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">A Qwen3-4B-Instruct model trained as a depth-1 RLM with verifiable rewards on the 32k-64k token, 2-needle split of MRCRv2 generalized to the 512K-1M token, 8-needle split. The run used 150 steps, a batch size of 128, and 4 rollouts per example. The exact scores are shown only in the paper&#x27;s Figure 3b chart.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do you need to train the sub-call model too?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Not to get started. The RLM paper trained only the root model and argues that sub-calls are essentially general-purpose LLM requests. Keeping the sub-call model frozen also makes credit assignment simpler.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Can I RL-train an RLM with open-source tools today?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. The reference rlm repository has a training folder with a verifiers-compatible environment, a reward rubric, and an example prime-rl config for Qwen3-30B-A3B on an OOLONG environment. You still need to write an environment and correctness function for your own task.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is there a released RLM that was trained with RL?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes. The mit-oasys/rlm-qwen3-30b-a3b-v0.1 adapter on Hugging Face was trained with RL and verifiable rewards using prime-rl. It is a LoRA adapter, so it needs the Qwen3-30B-A3B-Instruct-2507 base model.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should I distill before running RL on an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Usually yes. A root model that already writes valid REPL code wastes fewer expensive rollouts on syntax errors and empty answers. The RLM paper ran its SFT and RL experiments separately, so this order is untested on RLMs.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
