@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the Difference Between Prefill and Decode in LLM Inference? | rlm.md</title>
+    <meta name="description" content="Prefill reads the whole prompt in parallel and sets time to first token. Decode makes one token per step and sets inter-token latency. Why RLMs lean on prefill.">
+    <meta name="keywords" content="prefill vs decode, LLM inference, time to first token, inter-token latency, chunked prefill, disaggregated prefill, DistServe, Sarathi-Serve, Splitwise, vLLM, RLM sub-calls">
+    <link rel="canonical" href="https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html">
+    <meta property="og:title" content="What Is the Difference Between Prefill and Decode in LLM Inference?">
+    <meta property="og:description" content="Prefill is compute-heavy and sets time to first token. Decode is memory-heavy and sets inter-token latency. Here is why RLM sub-calls shift the balance toward prefill.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Is the Difference Between Prefill and Decode in LLM Inference?">
+    <meta name="twitter:description" content="Prefill vs decode in LLM inference, with chunked prefill, disaggregated serving, and what it means for RLM sub-calls.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="prefill vs decode, LLM inference, time to first token, inter-token latency, chunked prefill, disaggregated prefill, DistServe, Sarathi-Serve, Splitwise, vLLM, RLM sub-calls">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html#article",
+      "headline": "What Is the Difference Between Prefill and Decode in LLM Inference?",
+      "description": "Prefill reads the whole prompt in parallel and sets time to first token. Decode makes one token per step and sets inter-token latency. Why RLMs lean on prefill.",
+      "url": "https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html",
+      "datePublished": "2026-10-25",
+      "dateModified": "2026-10-25",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html#article"
+      },
+      "wordCount": "1333"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is prefill compute-bound and decode memory-bound?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "As a rule of thumb, yes. Prefill multiplies many tokens against each weight it reads, so it fills the GPU's compute units. Decode at small batch sizes reads all the weights for very few tokens, so memory bandwidth limits it. The vLLM docs describe prefill as compute-bound and decode as memory-bound in the same terms."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are TTFT and ITL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TTFT is time to first token, the wait from sending a request to getting the first output token. Prefill sets most of it. ITL is inter-token latency, the gap between later tokens, and DistServe calls the same idea time per output token (TPOT). Decode sets it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a longer prompt slow down decode too?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, but less than it slows prefill. Each decode step attends over the whole KV cache, so a longer context means more cache to read each step. A long cache also uses more memory, which leaves room for fewer requests in the decode batch."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I turn on disaggregated prefill in vLLM for an RLM?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Probably not as a first step. The vLLM docs mark it as experimental and say it does not improve throughput. Its value is separate control of TTFT and tail ITL. Chunked prefill is already on by default in vLLM V1 and is the simpler lever."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is the first token slow but the rest fast?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The first token waits for the full prefill pass over the prompt. Each later token needs only one decode step against the cached keys and values. With a long prompt, the gap between the two can be large."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="../index.html" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Is the Difference Between Prefill and Decode in LLM Inference?</h1>
+        <p class="lead">Every LLM request runs in two phases with different bottlenecks. Prefill reads the prompt and decode writes the answer, and RLMs spend most of their time in the first one.</p>
+    </div>
+
+    <div class="blog-meta">October 25, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> prefill is the first phase of an LLM request. The model reads every prompt token in one parallel pass, builds the KV cache, and emits the first output token, so prefill sets time to first token (TTFT). Decode is the second phase. The model then makes one token per step for each request, so decode sets the time per output token, also called inter-token latency (ITL). Prefill keeps the GPU's compute units busy. Decode mostly waits on memory, which is why the two phases fight when they share a GPU.</p>
+
+        <h2>What happens during prefill?</h2>
+
+        <p>The engine takes the whole prompt and runs it through the model at once. All prompt tokens go through each layer together as one large matrix multiply. The attention keys and values for every prompt token go into the KV cache, and the last position gives the first output token.</p>
+
+        <p>Because the work is one big parallel batch, prefill uses the GPU well. The <a href="https://arxiv.org/abs/2403.02310">Sarathi-Serve paper</a> puts it this way: "Prefill iterations have high latency but saturate GPU compute due to parallel processing of the input prompt." The <a href="https://arxiv.org/abs/2311.18677">Splitwise paper</a> calls this phase "a compute-intensive prompt computation." Prefill time grows with prompt length, so a long prompt means a long wait before the first token appears.</p>
+
+        <h2>What happens during decode?</h2>
+
+        <p>After the first token, the model generates the rest one at a time. Each step takes the newest token, attends to everything already in the KV cache, appends one new key and value per layer, and makes the next token. A step cannot start until the step before it is done, because it needs that token as input.</p>
+
+        <p>Each step does little arithmetic for each request, but it still has to stream all the model weights and that request's KV cache out of GPU memory. Sarathi-Serve says decode iterations "have low latency but also low compute utilization" because "a decode iteration processes only a single token per request." Splitwise calls token generation "memory-intensive" and says it "underutilizes compute resources."</p>
+
+        <p>Rough arithmetic shows why. An 8B-parameter model at BF16 has about 16 GB of weights. A matrix multiply does about two floating-point operations per weight per token. With one decode token in the batch, that is about one operation per byte of weights read, which is far too little to keep the compute units busy. With a 4,000-token prefill, the same weights are read once and used 4,000 times. That ratio is the core of the difference.</p>
+
+        <h2>Why does batching help decode much more than prefill?</h2>
+
+        <p>Batching lets many requests share one read of the weights. For decode, this is close to free throughput: 64 requests decoding together read the weights once per step instead of 64 times. Sarathi-Serve notes that low per-step utilization "makes batching highly effective for decodes." Prefill already fills the compute units, so adding more prefill tokens to a batch mostly makes the step longer.</p>
+
+        <p>Decode batch size has a ceiling, and that ceiling is KV cache memory. Each running request holds its own cache, and the cache grows with every token. The <a href="https://arxiv.org/abs/2309.06180">PagedAttention paper</a> describes KV cache memory per request as "huge" and says it "grows and shrinks dynamically." It also says that wasted cache memory limits batch size, and paging the cache let vLLM improve throughput by 2 to 4 times over earlier systems. Our post on <a href="kv-cache-vram-for-128k-context.html">KV cache VRAM for a 128K context</a> gives the memory formula and worked numbers.</p>
+
+        <h2>How do serving engines stop prefill from stalling decode?</h2>
+
+        <p>When one GPU serves many users, a long new prompt can block every request that is already decoding. Each decode step has to wait while the big prefill runs, so ITL spikes for everyone. There are two main fixes.</p>
+
+        <ul>
+
+            <li><strong>Chunked prefill.</strong> Sarathi-Serve splits a prefill "into near equal sized chunks" and mixes them into batches "without pausing ongoing decodes." It reports 2.6x higher serving capacity than vLLM for Mistral-7B on one A100, under tail latency limits. In vLLM V1, the <a href="https://github.com/vllm-project/vllm/blob/main/docs/configuration/optimization.md">optimization docs</a> say chunked prefill "is enabled by default whenever possible." The scheduler batches all pending decodes first and then fills the rest of the <code>max_num_batched_tokens</code> budget with prefill chunks. Smaller budgets such as 2048 give better ITL. Larger budgets give better TTFT.</li>
+
+            <li><strong>Disaggregated prefill.</strong> <a href="https://arxiv.org/abs/2401.09670">DistServe</a> runs prefill and decode on different GPUs, "hence eliminating prefill-decoding interferences," and then moves the KV cache across. It reports it can "serve 7.4x more requests or 12.6x tighter SLO" than the systems it compared against. Splitwise uses the same split to put decode on cheaper hardware, and it reports 1.4x higher throughput at 20% lower cost. The <a href="https://github.com/vllm-project/vllm/blob/main/docs/features/disagg_prefill.md">vLLM disaggregated prefilling docs</a> mark the feature as experimental. They say it lets you tune TTFT and ITL separately and control tail ITL, but that it "DOES NOT improve throughput" in vLLM.</li>
+
+        </ul>
+
+        <h2>How does an RLM change the prefill and decode balance?</h2>
+
+        <p>A typical chat request has a modest prompt and a long answer, so decode takes most of the time. An RLM moves most of the work into prefill. In the <a href="https://arxiv.org/abs/2512.24601">RLM paper</a>, the input lives in a Python REPL. The root model writes code that slices it and sends pieces to sub-calls through <code>llm_query</code>. The system prompt describes that function as one "that can handle around 500K chars" and suggests "a viable strategy is to feed 10 documents per sub-LLM query."</p>
+
+        <p>Here is a worked example with illustrative numbers, not figures from the paper. Say the root splits a 1M-token corpus into 50 chunks of 20,000 tokens. Each sub-call returns a 200-token finding.</p>
+
+        <ol>
+
+            <li><strong>Sub-calls.</strong> Prefill is 50 x 20,000 = 1,000,000 tokens. Decode is 50 x 200 = 10,000 tokens. That is 100 prefill tokens for each decoded token.</li>
+
+            <li><strong>Root loop.</strong> Each root turn resends the trajectory so far, so prefill grows every turn, while each turn decodes only a short block of code. The paper notes that only "constant-size" metadata about REPL output goes back into the root history, which keeps that growth in check.</li>
+
+            <li><strong>The result.</strong> The token count is lopsided toward prefill, and each sub-call pays a full TTFT before its first token. Whether prefill or decode takes more wall time depends on the hardware and batch, because prefill processes tokens in parallel while decode makes them one step at a time. Measure both TTFT and ITL on your own setup.</li>
+
+        </ol>
+
+        <p>This shape explains two things. First, it explains the RLM latency numbers. The paper states that "we implemented all sub-LM queries naively as blocking / sequential calls," so every sub-call's prefill adds directly to wall time. It also warns that, without a cap, Qwen3-Coder tried to make a sub-call on everything, "leading to thousands of LM subcalls for basic tasks." Thousands of prefills in a row is a slow trajectory, as our post on <a href="are-rlms-slower-than-a-single-long-context-call.html">whether RLMs are slower than one long-context call</a> shows.</p>
+
+        <p>Second, it tells you which optimizations matter. Prefix caching cuts prefill only, so it helps the root loop, where each turn repeats the prefix. It helps sub-calls only when they share a long prefix, as our post on <a href="does-prompt-caching-cut-rlm-sub-call-costs.html">prompt caching for sub-calls</a> covers. Running sub-calls in parallel helps even more on a self-hosted engine, because many short prefills can share batches with chunked prefill. If you serve a sub-call model yourself, tune for TTFT and prefill throughput, not for long-generation ITL.</p>
+
+        <h2>The bottom line</h2>
+
+        <p>Prefill reads the prompt in parallel, uses GPU compute well, and sets TTFT. Decode makes one token per step, waits on memory, and sets ITL. Serving engines use chunked prefill or separate prefill and decode GPUs so that the two phases do not stall each other. An RLM sends many large chunks and gets short answers back, so its cost and latency come mostly from prefill. Measure TTFT per sub-call first.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Agrawal et al. "Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve." arXiv:2403.02310, 2024. Prefill saturates compute, decode has low utilization, chunked prefills, stall-free scheduling, 2.6x capacity result. <a href="https://arxiv.org/abs/2403.02310">arxiv.org/abs/2403.02310</a></li>
+            <li>Zhong et al. "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving." arXiv:2401.09670, 2024. TTFT and TPOT, prefill-decoding interference, 7.4x requests or 12.6x tighter SLO. <a href="https://arxiv.org/abs/2401.09670">arxiv.org/abs/2401.09670</a></li>
+            <li>Patel et al. "Splitwise: Efficient Generative LLM Inference Using Phase Splitting." arXiv:2311.18677, 2023. Compute-intensive prompt phase, memory-intensive generation phase, 1.4x throughput at 20% lower cost. <a href="https://arxiv.org/abs/2311.18677">arxiv.org/abs/2311.18677</a></li>
+            <li>Kwon et al. "Efficient Memory Management for Large Language Model Serving with PagedAttention." arXiv:2309.06180, 2023. KV cache size and growth limit batch size; 2-4x throughput. <a href="https://arxiv.org/abs/2309.06180">arxiv.org/abs/2309.06180</a></li>
+            <li>vLLM project. "Optimization and Tuning: Chunked Prefill." vLLM docs (source on GitHub), accessed 2026-10-25. Chunked prefill on by default in V1, decode-first scheduling, max_num_batched_tokens trade-off. <a href="https://github.com/vllm-project/vllm/blob/main/docs/configuration/optimization.md">github.com/vllm-project/vllm/blob/main/docs/configuration/optimization.md</a></li>
+            <li>vLLM project. "Disaggregated Prefilling (experimental)." vLLM docs (source on GitHub), accessed 2026-10-25. Separate TTFT and ITL tuning, tail ITL control, no throughput gain. <a href="https://github.com/vllm-project/vllm/blob/main/docs/features/disagg_prefill.md">github.com/vllm-project/vllm/blob/main/docs/features/disagg_prefill.md</a></li>
+            <li>Zhang, Kraska, Khattab. "Recursive Language Models." arXiv:2512.24601, 2025. llm_query sub-calls of around 500K characters, blocking sequential sub-calls, Qwen3-Coder making thousands of sub-calls. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is prefill compute-bound and decode memory-bound?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">As a rule of thumb, yes. Prefill multiplies many tokens against each weight it reads, so it fills the GPU&#x27;s compute units. Decode at small batch sizes reads all the weights for very few tokens, so memory bandwidth limits it. The vLLM docs describe prefill as compute-bound and decode as memory-bound in the same terms.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">What are TTFT and ITL?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">TTFT is time to first token, the wait from sending a request to getting the first output token. Prefill sets most of it. ITL is inter-token latency, the gap between later tokens, and DistServe calls the same idea time per output token (TPOT). Decode sets it.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does a longer prompt slow down decode too?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes, but less than it slows prefill. Each decode step attends over the whole KV cache, so a longer context means more cache to read each step. A long cache also uses more memory, which leaves room for fewer requests in the decode batch.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should I turn on disaggregated prefill in vLLM for an RLM?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Probably not as a first step. The vLLM docs mark it as experimental and say it does not improve throughput. Its value is separate control of TTFT and tail ITL. Chunked prefill is already on by default in vLLM V1 and is the simpler lever.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Why is the first token slow but the rest fast?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">The first token waits for the full prefill pass over the prompt. Each later token needs only one decode step against the cached keys and values. With a long prompt, the gap between the two can be large.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
