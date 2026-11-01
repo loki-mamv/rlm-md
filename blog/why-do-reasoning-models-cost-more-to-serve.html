@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Do Reasoning Models Cost More to Serve Than Standard LLMs? | rlm.md</title>
+    <meta name="description" content="Reasoning calls write more tokens, billed at the output rate. Each adds a decode step, holds KV cache longer, and makes request length harder to schedule.">
+    <meta name="keywords" content="reasoning model cost, reasoning tokens, thinking tokens billing, cost to serve LLM, output token cost, KV cache residency, decode throughput, Pascal scheduler, head-of-line blocking, RLM sub-calls">
+    <link rel="canonical" href="https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html">
+    <meta property="og:title" content="Why Do Reasoning Models Cost More to Serve Than Standard LLMs?">
+    <meta property="og:description" content="Reasoning tokens rarely cost more per token. They add decode steps, KV cache residency and length variance. Here is the worked arithmetic, and what it means for RLM sub-calls.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Why Do Reasoning Models Cost More to Serve Than Standard LLMs?">
+    <meta name="twitter:description" content="Why reasoning calls cost more: hidden output tokens, longer KV cache residency, and unpredictable length, with worked numbers for RLM sub-calls.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="reasoning model cost, reasoning tokens, thinking tokens billing, cost to serve LLM, output token cost, KV cache residency, decode throughput, Pascal scheduler, head-of-line blocking, RLM sub-calls">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html#article",
+      "headline": "Why Do Reasoning Models Cost More to Serve Than Standard LLMs?",
+      "description": "Reasoning calls write more tokens, billed at the output rate. Each adds a decode step, holds KV cache longer, and makes request length harder to schedule.",
+      "url": "https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html",
+      "datePublished": "2026-11-01",
+      "dateModified": "2026-11-01",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html#article"
+      },
+      "wordCount": "1396"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I see how many reasoning tokens I paid for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "On OpenAI, read the usage object in the response. The count is in reasoning_tokens under output_tokens_details. You cannot read the hidden tokens themselves, but you pay for them at the output rate."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is a reasoning model always more expensive than a standard model?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. OpenAI's pricing page, read November 1, 2026, lists o3 at $2 input and $8 output per million tokens, and gpt-4o at $2.50 input and $10 output. The total for a request can still be higher, because the reasoning model writes more tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does batching remove the extra cost of long outputs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It helps but does not remove it. Vellaisamy et al. found that batching lowers energy per token, and that the benefit shrinks as context length grows. Each request also holds its KV cache for the whole run, which limits the batch size."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do reasoning tokens use up the context window?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes on OpenAI. The reasoning guide says they occupy space in the context window even though you cannot see them. The max_output_tokens limit also covers both reasoning and visible output."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should the RLM root use more reasoning than the sub-calls?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "That is a sensible starting point, not a tested rule. The root plans and writes code, while most sub-calls do a narrow job on one snippet. Run an evaluation sweep before you fix the setting."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="/" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>Why Do Reasoning Models Cost More to Serve Than Standard LLMs?</h1>
+        <p class="lead">The price per token is often the same. The difference is how many tokens a reasoning call writes, and what those tokens do to GPU memory and scheduling.</p>
+    </div>
+
+    <div class="blog-meta">November 1, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> a reasoning call usually costs more because it writes more tokens, not because each token has a higher price. Hidden reasoning is billed at the output rate on OpenAI and Google. On the GPU, those tokens add decode steps, keep the KV cache resident for longer, and make request length hard to predict. For RLMs, the dollar effect is smaller than the latency effect, because sub-call input usually outweighs sub-call output.</p>
+
+        <h2>Do reasoning tokens have a higher price?</h2>
+
+        <p>Mostly no. The label "reasoning model" also means less than it did. DeepSeek's <a href="https://api-docs.deepseek.com/quick_start/pricing">pricing page</a> lists no separate reasoning model and says each model "supports both non-thinking and thinking (default) modes." OpenAI's <a href="https://developers.openai.com/api/docs/guides/reasoning">reasoning guide</a> lets you set effort on one model, and <code>gpt-6.1-sol</code> rejects both <code>none</code> and <code>minimal</code>.</p>
+
+        <p>The bill comes from the count. OpenAI says reasoning tokens "are not visible via the API" but are "billed as output tokens." It reports them as <code>reasoning_tokens</code> under <code>output_tokens_details</code>. Google's <a href="https://ai.google.dev/gemini-api/docs/pricing">Gemini pricing page</a> labels the row "Output price (including thinking tokens)."</p>
+
+        <p>List prices are a weak guide to this question. OpenAI's <a href="https://developers.openai.com/api/docs/pricing">pricing page</a>, read November 1, 2026, still shows <code>o1</code> at $60 per million output tokens and <code>gpt-4o</code> at $10. It also shows <code>o3</code>, a reasoning model, at $8. So a reasoning model does not have to carry a higher rate. A 2026 study of ten LLMs on embedding-style tasks, <a href="https://arxiv.org/abs/2608.12875">The Embedder's Dilemma</a>, reports that "reasoning tokens account for 28 to 81% of LLM inference cost." That range comes from those tasks and models, so do not apply it to every workload.</p>
+
+        <h2>Why does a longer output cost more on the GPU?</h2>
+
+        <p>Output is sequential. The model makes one token per decode step, and each step needs the token before it. Our post on <a href="prefill-vs-decode-in-llm-inference.html">prefill vs decode</a> explains the mechanics. For cost, the result is simple: reasoning tokens add steps, and each request stays on the GPU for all of them.</p>
+
+        <p>The best public measurement here describes energy, not dollars. <a href="https://arxiv.org/abs/2608.28044">Vellaisamy et al.</a> model each request as a fixed prefill and setup cost plus a marginal cost for each output-token step. They tested this on NVIDIA H100 and H200 GPUs. Longer outputs lowered energy per token and raised total request energy. That split explains why cost per token can fall while cost per request rises. Batching lowers token energy too, but the benefit shrinks as context grows.</p>
+
+        <p>One caution: the gap between input and output price is a vendor's choice. None of the vendor pages we read gives a cost to serve, so a price list does not measure the hardware.</p>
+
+        <h2>How does long reasoning tie up KV cache memory?</h2>
+
+        <p>The cache grows with every generated token, and it stays in memory until the request ends. <a href="https://arxiv.org/abs/2602.11530">Pascal</a> (Cho et al., 2026), a scheduler built for reasoning models, states the limit: the number of requests in a batch is "constrained by the cumulative KV cache footprint." Under first-come, first-served, "once a request starts reasoning, it holds GPU memory until its answering phase completes."</p>
+
+        <p>This cost grows faster than the token count. Memory held over time is roughly steps × (prompt + steps/2), which we call token-steps. That is our arithmetic, not a measured figure. With a 4,000-token prompt:</p>
+
+        <ul>
+            <li><strong>500 output tokens:</strong> 500 steps, about 2.1 million token-steps, 4,500 tokens of cache at the peak.</li>
+            <li><strong>4,740 output tokens:</strong> 4,740 steps, about 30.2 million token-steps, 8,740 tokens of cache at the peak.</li>
+        </ul>
+
+        <p>You pay per token, but the GPU pays per token-step. Per-sequence memory for a given model comes from the formula in our <a href="kv-cache-vram-for-128k-context.html">KV cache post</a>. A GPU's rate in tokens per second need not fall. Requests per second do fall, because each request needs more of those tokens.</p>
+
+        <h2>Why does unpredictable length hurt scheduling?</h2>
+
+        <p>A scheduler admits a request before it knows how long that request will run. Pascal's authors call reasoning lengths "highly variable." In their AlpacaEval2.0 and Arena-Hard traces, more than 70% of requests made fewer than 1,000 reasoning tokens. On problem-solving benchmarks (MATH-500, GPQA, LiveCodeBench), reasoning tokens reached as much as 8.48× the answer tokens.</p>
+
+        <p>Mixed lengths cause head-of-line blocking, where a short request waits behind long ones whose caches stay resident. Pascal measured DeepSeek-R1-Distill-Qwen-32B on vLLM with KV cache memory capped below what the workload needed. First-come, first-served raised latency for short reasoning requests by up to 5.14× over an oracle baseline. Round robin raised latency for long requests by up to 1.75× over the same baseline. In a cluster simulation, Pascal's phase-aware design cut tail TTFT by up to 72% against first-come, first-served, and throughput stayed within 3%. So scheduling recovers latency, but the paper gives no such gain in raw capacity.</p>
+
+        <p>When memory runs out, the scheduler can offload a request's KV cache to CPU memory and suspend it. Vendors face the same length problem from the other side. OpenAI recommends "reserving at least 25,000 tokens for reasoning and outputs" when you start.</p>
+
+        <h2>What does a reasoning call cost in dollars?</h2>
+
+        <p>Here is a worked example at <code>gpt-6.1-sol</code> standard rates: $2 per million input tokens and $10 per million output tokens, from OpenAI's pricing page, read November 1, 2026. The token counts are assumptions. This model does not accept <code>none</code>, so the first row is a baseline for the arithmetic, not a setting you can select. Each call has 4,000 input tokens and a 500-token visible answer.</p>
+
+        <ul>
+            <li><strong>No reasoning tokens:</strong> $0.008 input + $0.005 output = <strong>$0.013</strong>.</li>
+            <li><strong>800 reasoning tokens (assumed):</strong> 1,300 output tokens. $0.008 + $0.013 = <strong>$0.021</strong>.</li>
+            <li><strong>4,240 reasoning tokens (assumed, the 8.48× upper figure from Pascal):</strong> 4,740 output tokens. $0.008 + $0.0474 = <strong>$0.0554</strong>.</li>
+        </ul>
+
+        <p>The time view uses the same counts. At Pascal's 100 ms per-token target, those calls decode for 50, 130, and 474 seconds. The input bill never moves. Reasoning takes about 38% of the bill in the middle row and 77% in the last.</p>
+
+        <h2>What does this mean for RLM sub-calls?</h2>
+
+        <p>An RLM has a different token shape. It holds a long prompt in an external environment and <a href="https://arxiv.org/abs/2512.24601">calls itself on pieces</a> of it, so each sub-call reads a lot and writes a little. Take 50 sub-calls of 20,000 input tokens, each with a 200-token answer, at the same rates. These counts are also assumptions.</p>
+
+        <ul>
+            <li><strong>No reasoning tokens:</strong> $2.00 input + $0.10 output = <strong>$2.10</strong>.</li>
+            <li><strong>800 reasoning tokens per sub-call:</strong> $2.00 + $0.50 = <strong>$2.50</strong>.</li>
+            <li><strong>1,696 reasoning tokens per sub-call (8.48× the answer):</strong> $2.00 + $0.948 = <strong>$2.95</strong>.</li>
+        </ul>
+
+        <p>Input still holds most of the bill, so the dollar effect stays modest. The time effect is larger. At the same 100 ms target, each sub-call goes from 20 seconds of decode to 100 or about 190. A parallel fan-out finishes only when its slowest sub-call does, so variance in reasoning length sets your wall time. Three practical rules follow.</p>
+
+        <ol>
+            <li><strong>Set a low effort on sub-calls.</strong> Most sub-calls extract or classify one snippet. The Embedder's Dilemma found that lower reasoning budgets "preserve or improve retrieval quality for most models" in its ablation. Our post on <a href="can-more-thinking-tokens-make-a-reasoning-model-less-accurate.html">thinking tokens and accuracy</a> covers the evidence, so sweep the setting on your own tasks.</li>
+            <li><strong>Be careful with hard caps.</strong> If a call reaches <code>max_output_tokens</code>, OpenAI says it "could incur costs for input and reasoning tokens without receiving a visible response." In an RLM, a retry then pays the full input again.</li>
+            <li><strong>Watch depth.</strong> Reasoning cost scales with the number of calls. <a href="https://arxiv.org/abs/2603.02615">Wang's reproduction</a> found that depth 2 "exponentially inflates execution time (e.g., from 3.6s to 344.5s) and token costs." For the wider case for spending compute at inference time, see <a href="inference-time-compute-scaling.html">inference-time compute scaling</a>.</li>
+        </ol>
+
+        <h2>The bottom line</h2>
+
+        <p>Reasoning models cost more to serve because they write more tokens per request, and each token adds a decode step, more KV cache held for longer, and more length variance for the scheduler. The price per token is often the same. At the request level, track <code>reasoning_tokens</code> and not just the price per token. In an RLM, keep reasoning low on sub-calls, spend it at the root where planning happens, and measure the slowest sub-call, because that is where reasoning hurts first.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Cho E, Bang J, Hwang R, Rhu M. "Pascal: A Phase-Aware Scheduling Algorithm for Serving Reasoning-based Large Language Models." arXiv:2602.11530, February 2026. KV cache limits on batching, head-of-line blocking, 70% and 8.48× reasoning length figures, 5.14× and 1.75× latency over an oracle baseline, 72% tail TTFT cut, 100 ms TPOT target. <a href="https://arxiv.org/abs/2602.11530">arxiv.org/abs/2602.11530</a></li>
+            <li>Vellaisamy P, Lam V, Blanton S, Shen JP. "Characterization of Request and Token Energy Costs for LLM Inference Workloads on GPU Platforms." arXiv:2608.28044, August 2026. Fixed plus per-step energy model; longer outputs lower token energy and raise request energy; batching benefit shrinks with context. <a href="https://arxiv.org/abs/2608.28044">arxiv.org/abs/2608.28044</a></li>
+            <li>El Assadi A, Muennighoff N, Lee J. "The Embedder's Dilemma: LLMs Are Better, but at What Cost?" arXiv:2608.12875, August 2026; COLM 2026. Reasoning tokens as 28 to 81% of LLM inference cost; lower reasoning budgets preserve or improve retrieval quality. <a href="https://arxiv.org/abs/2608.12875">arxiv.org/abs/2608.12875</a></li>
+            <li>OpenAI. "Reasoning models." OpenAI API documentation, accessed November 1, 2026. Reasoning tokens hidden, billed as output, reported in usage, counted by max_output_tokens; 25,000-token recommendation; effort values. <a href="https://developers.openai.com/api/docs/guides/reasoning">developers.openai.com/api/docs/guides/reasoning</a></li>
+            <li>OpenAI. "Pricing." OpenAI API documentation, accessed November 1, 2026. Standard rates for gpt-6.1-sol, o1, o3 and gpt-4o. <a href="https://developers.openai.com/api/docs/pricing">developers.openai.com/api/docs/pricing</a></li>
+            <li>Google. "Gemini Developer API pricing." Google AI for Developers, accessed November 1, 2026. Output price row includes thinking tokens. <a href="https://ai.google.dev/gemini-api/docs/pricing">ai.google.dev/gemini-api/docs/pricing</a></li>
+            <li>DeepSeek. "Models and Pricing." DeepSeek API documentation, accessed November 1, 2026. Thinking as a mode of each model, with no separate reasoning model listed. <a href="https://api-docs.deepseek.com/quick_start/pricing">api-docs.deepseek.com/quick_start/pricing</a></li>
+            <li>Zhang AL, Kraska T, Khattab O. "Recursive Language Models." arXiv:2512.24601, December 2025. The prompt as an external environment, with recursive calls over pieces of it. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Wang D. "Think, But Don't Overthink: Reproducing Recursive Language Models." arXiv:2603.02615, March 2026. Depth 2 inflates execution time from 3.6s to 344.5s and raises token costs. <a href="https://arxiv.org/abs/2603.02615">arxiv.org/abs/2603.02615</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How do I see how many reasoning tokens I paid for?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">On OpenAI, read the usage object in the response. The count is in reasoning_tokens under output_tokens_details. You cannot read the hidden tokens themselves, but you pay for them at the output rate.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is a reasoning model always more expensive than a standard model?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. OpenAI&#x27;s pricing page, read November 1, 2026, lists o3 at $2 input and $8 output per million tokens, and gpt-4o at $2.50 input and $10 output. The total for a request can still be higher, because the reasoning model writes more tokens.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does batching remove the extra cost of long outputs?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">It helps but does not remove it. Vellaisamy et al. found that batching lowers energy per token, and that the benefit shrinks as context length grows. Each request also holds its KV cache for the whole run, which limits the batch size.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do reasoning tokens use up the context window?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Yes on OpenAI. The reasoning guide says they occupy space in the context window even though you cannot see them. The max_output_tokens limit also covers both reasoning and visible output.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Should the RLM root use more reasoning than the sub-calls?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">That is a sensible starting point, not a tested rule. The root plans and writes code, while most sub-calls do a narrow job on one snippet. Run an evaluation sweep before you fix the setting.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
