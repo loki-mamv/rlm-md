@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer? | rlm.md</title>
+    <meta name="description" content="Context rot is the drop in LLM accuracy as input length grows. Here is the evidence from Chroma, RULER, NoLiMa and Lost in the Middle, the causes, and the fixes.">
+    <meta name="keywords" content="context rot, long context, LLM performance, input length, lost in the middle, RULER benchmark, NoLiMa, Chroma context rot, effective context length, recursive language models">
+    <link rel="canonical" href="https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html">
+    <meta property="og:title" content="What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer?">
+    <meta property="og:description" content="Context rot is the loss of accuracy that comes from input length itself. The studies that measured it, the proposed causes, and what to do about it.">
+    <meta property="og:site_name" content="rlm.md">
+    <meta property="og:image" content="https://rlm.md/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer?">
+    <meta name="twitter:description" content="Context rot, defined: what the studies measured, why longer inputs hurt LLMs, and how retrieval, compaction, and RLMs work around it.">
+    <meta name="twitter:image" content="https://rlm.md/og-image.jpg">
+    <meta name="ai-content" content="allowed">
+    <meta name="ai-topic" content="context rot, long context, LLM performance, input length, lost in the middle, RULER benchmark, NoLiMa, Chroma context rot, effective context length, recursive language models">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='16' y='24' font-family='monospace' font-weight='800' font-size='14' fill='%23c9a84c' text-anchor='middle'%3Erlm%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html#article",
+      "headline": "What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer?",
+      "description": "Context rot is the drop in LLM accuracy as input length grows. Here is the evidence from Chroma, RULER, NoLiMa and Lost in the Middle, the causes, and the fixes.",
+      "url": "https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html",
+      "datePublished": "2026-11-09",
+      "dateModified": "2026-11-09",
+      "author": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "rlm.md",
+        "url": "https://rlm.md"
+      },
+      "isPartOf": {
+        "@id": "https://rlm.md/#website"
+      },
+      "mainEntityOfPage": {
+        "@id": "https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html#article"
+      },
+      "wordCount": "1419"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Who coined the term context rot?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No source we found shows who first used the phrase. Chroma's July 2025 technical report by Hong, Troynikov, and Huber gave it a measured definition across 18 models. Anthropic and the RLM authors both cite that framing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a bigger context window fix context rot?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. RULER found that only half of models claiming 32K or more tokens kept satisfactory performance at 32K. A larger window raises the hard limit but does not stop accuracy from falling well before it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do reasoning or thinking models avoid context rot?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "They reduce it but do not remove it. Chroma found thinking modes improved both short and long versions of LongMemEval questions, yet the gap between them stayed. NoLiMa reported that reasoning models and chain-of-thought prompting still struggled at long lengths."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is context rot the same as the lost-in-the-middle effect?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Lost in the middle is one part of it. It describes recall that depends on where a fact sits in the prompt. Context rot is broader and includes drops from length alone, distractors, and weak semantic matching."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How can I test my own application for context rot?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run the same questions twice: once with the full input and once with only the relevant passages. Hold the model and prompt template fixed. A large accuracy gap between the two runs is context rot in your workload."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <style>
+        .blog-meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-bottom: 3rem; }
+        .blog-body h2 { margin-top: 3rem; }
+        .blog-body p { color: var(--text-muted); }
+        .blog-body strong { color: var(--text); }
+        .blog-back { display: inline-block; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent); margin-bottom: 2rem; border-bottom: 1px solid transparent; }
+        .blog-back:hover { border-bottom-color: var(--accent); }
+        .ref-list { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .ref-list h3 { font-size: 1rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .ref-list ol { padding-left: 1.5rem; }
+        .ref-list li { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .comparison-table th { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .comparison-table td { color: var(--text-muted); }
+        .comparison-table td:first-child { color: var(--text); font-weight: 600; }
+    </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETT0C9RLG0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETT0C9RLG0');
+</script>
+<script>
+  // AI answer-engine attribution: capture utm/app/referrer signals on landing
+  (function(){
+    try {
+      var q = new URLSearchParams(location.search);
+      var ref = document.referrer || '';
+      var refHost = '';
+      if (ref) { try { refHost = new URL(ref).hostname; } catch(e) {} }
+      var ua = navigator.userAgent || '';
+      var hint = /ChatGPT|OAI-/i.test(ua) ? 'chatgpt-app' : /Perplexity/i.test(ua) ? 'perplexity-app' : /Claude/i.test(ua) ? 'claude-app' : '';
+      gtag('event', 'ai_attribution', {
+        ai_utm: q.get('utm_source') || '(none)',
+        ai_ref: refHost || '(direct)',
+        ai_ua_hint: hint || '(none)'
+      });
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+
+<nav class="site-nav">
+    <a href="/" class="site-logo">rlm<span class="dot">.md</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">///</button>
+    <ul class="nav-links">
+        <li><a href="../">Home</a></li>
+        <li><a href="../fundamentals.html">Fundamentals</a></li>
+        <li><a href="../techniques.html">Techniques</a></li>
+        <li><a href="../research.html">Research</a></li>
+        <li><a href="../rlm-vs-llm.html">RLM vs LLM</a></li>
+        <li><a href="../applications.html">Applications</a></li>
+        <li><a href="../resources.html">Resources</a></li>
+        <li><a href="./" class="active">Blog</a></li>
+    </ul>
+</nav>
+
+<div class="page-body">
+<div class="container">
+
+    <a href="./" class="blog-back">Back to Blog</a>
+
+    <div class="page-header fade-in">
+        <h1>What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer?</h1>
+        <p class="lead">A model that accepts a million tokens does not use a million tokens equally well. Here is what the term means, what the studies measured, and what to do about it.</p>
+    </div>
+
+    <div class="blog-meta">November 9, 2026</div>
+
+    <div class="blog-body fade-in">
+        <p><strong>The short version:</strong> context rot is the drop in an LLM's accuracy as its input gets longer, even when the task stays just as easy and the answer is still in the prompt. The term was popularized in mid-2025 by a Chroma technical report that tested 18 models on length-controlled tasks and found performance "grows increasingly unreliable as input length grows." Proposed causes include attention spread across more token pairs, training data that skews short, weak recall in the middle of long inputs, and distractors that look like the answer. The practical fix is to send the model less: retrieve, compact, or decompose the input so each call sees a short, focused context.</p>
+
+        <h2>What does "context rot" actually mean?</h2>
+        <p>It names a gap between two numbers on a model card: how many tokens a model <em>accepts</em>, and how many it can <em>use</em> reliably. A model with a 1M-token window will take a 900K-token prompt without error. Context rot is the observation that its answers on that prompt are worse than its answers on the same question with a short prompt.</p>
+        <p>The phrase spread through practitioner talk about long chat sessions and bloated coding-agent histories before it had a formal definition. Chroma's July 2025 report, <a href="https://research.trychroma.com/context-rot">"Context Rot: How Increasing Input Tokens Impacts LLM Performance"</a> by Kelly Hong, Anton Troynikov, and Jeff Huber, gave it a measured one. Anthropic's <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">context engineering guide</a> uses a short version: "as the number of tokens in the context window increases, the model's ability to accurately recall information from that context decreases," and adds that the effect "emerges across all models," some more gently than others.</p>
+        <p>Alex Zhang, first author of the RLM paper, argues in his <a href="https://alexzhang13.github.io/blog/2025/rlm/">blog post</a> that the recall definition "doesn't fully hit the mark," because frontier models score well on retrieval benchmarks like RULER and still feel worse as a conversation grows. A working definition that covers both: <strong>context rot is any loss of accuracy that comes from input length itself, separate from task difficulty.</strong></p>
+
+        <h2>What evidence shows performance falling as input grows?</h2>
+        <p>Four lines of work, each controlling for a different confound.</p>
+        <ul>
+          <li><strong>Position effects (2023).</strong> <a href="https://arxiv.org/abs/2307.03172">"Lost in the Middle"</a> (Liu et al., TACL) tested multi-document QA and key-value retrieval. Performance was "often highest when relevant information occurs at the beginning or end of the input context," and dropped significantly when the answer sat in the middle, "even for explicitly long-context models."</li>
+          <li><strong>Claimed vs effective length (2024).</strong> <a href="https://arxiv.org/abs/2404.06654">RULER</a> (Hsieh et al., COLM 2024) ran 17 long-context models on 13 tasks, adding multi-hop tracing and aggregation to plain needle retrieval. Models scored near-perfect on vanilla needle-in-a-haystack, yet "almost all models exhibit large performance drops as the context length increases." All claimed at least 32K tokens; only half kept satisfactory performance at 32K.</li>
+          <li><strong>No literal matches (2025).</strong> <a href="https://arxiv.org/abs/2502.05167">NoLiMa</a> (Modarressi et al., ICML 2025) wrote needles that share almost no words with the question. Of 13 models claiming 128K or more, 11 fell below 50% of their short-context baselines at 32K. GPT-4o went from 99.3% to 69.7%.</li>
+          <li><strong>Length-only controls (2025).</strong> Chroma held task difficulty fixed and varied only input length, across 8 lengths and 11 needle positions, 194,480 calls in total. Its summary: "Across all experiments, model performance consistently degrades with increasing input length."</li>
+        </ul>
+        <p>The RLM paper (<a href="https://arxiv.org/abs/2512.24601">Zhang, Kraska, and Khattab</a>) uses this as its starting point. It says frontier reasoning models "tend to exhibit context rot," citing Chroma, and its Figure 1 scales inputs from 2^13 to 2^20 tokens (about 8K to 1M). GPT-5 "degrades significantly as a function of both input length and task complexity."</p>
+
+        <h2>Why do LLMs get worse with longer inputs?</h2>
+        <p>Nobody has one confirmed cause. These are the mechanisms the sources propose, and the evidence behind each.</p>
+        <ol>
+          <li><strong>A finite attention budget.</strong> Anthropic's guide notes that a transformer creates "n² pairwise relationships for n tokens," and that as length grows the model's ability to capture them "gets stretched thin." More tokens means less focus on any one of them.</li>
+          <li><strong>Short training data.</strong> The same guide says models learn attention patterns from distributions "where shorter sequences are typically more common," so they have "fewer specialized parameters for context-wide dependencies." Position interpolation stretches a model past its trained length, "with some degradation in token position understanding."</li>
+          <li><strong>Position bias.</strong> Liu et al.'s U-shaped curve means facts in the middle of a long prompt are recalled less reliably than facts at the edges.</li>
+          <li><strong>Semantic, not lexical, matching.</strong> NoLiMa's authors attribute the drop to "increased difficulty the attention mechanism faces in longer contexts when literal matches are absent." Chroma found the same: lower needle-question similarity made accuracy fall faster with length.</li>
+          <li><strong>Distractors.</strong> Chroma found that text topically close to the answer, but wrong, hurt more as length grew, and different distractors hurt by different amounts.</li>
+        </ol>
+        <p>One Chroma result does not fit a simple story. Models did <em>better</em> when the haystack sentences were shuffled than when they kept their logical flow, across all 18 models. Context rot depends on what fills the window, not only how much. For the deeper case that dense tasks break attention, see <a href="why-context-windows-are-the-wrong-abstraction.html">why context windows are the wrong abstraction</a>.</p>
+
+        <h2>What does context rot look like in a real workload?</h2>
+        <p>Chroma's LongMemEval experiment is the closest thing to a production chat assistant. It used 306 questions about a user's chat history. Each question had two versions:</p>
+        <ul>
+          <li><strong>Full:</strong> the whole history, averaging about 113K tokens, mostly irrelevant to the question.</li>
+          <li><strong>Focused:</strong> only the relevant turns, averaging about 300 tokens.</li>
+        </ul>
+        <p>Same question, same facts, same model. Across all models, the report found "significantly higher performance on focused prompts." Thinking modes helped on both versions but did not close the gap. Claude models showed the widest gap, mostly from abstaining: Claude Sonnet 4 answered a date-difference question by saying the dates "are not provided in the chat history," when they were.</p>
+        <p>The lesson for anyone building on long histories: the full prompt makes the model do two jobs at once, find the relevant turns and then reason over them. The focused prompt only asks for the second.</p>
+
+        <h2>How do practitioners reduce context rot?</h2>
+        <p>Every working fix shrinks what one model call has to read. They differ in who decides what to keep, and when.</p>
+        <ul>
+          <li><strong>Retrieval.</strong> An embedding index picks the chunks before the call. Cheap and fast, but the choice is made once, from the query alone. Our <a href="rlm-vs-rag-retrieval-augmented-generation.html">RLM vs RAG comparison</a> covers where that breaks.</li>
+          <li><strong>Just-in-time loading.</strong> Anthropic describes agents that keep "lightweight identifiers (file paths, stored queries, web links, etc.)" and load data with tools only when needed.</li>
+          <li><strong>Compaction.</strong> Summarize old turns and restart with the summary. It works for linear sessions, but a summary loses detail it did not know would matter. See <a href="rlm-vs-context-compaction-long-sessions.html">RLM vs context compaction</a>.</li>
+          <li><strong>Sub-agents.</strong> Specialized agents explore with clean windows and return a condensed result, which Anthropic puts at "often 1,000-2,000 tokens."</li>
+          <li><strong>Recursive decomposition.</strong> An RLM stores the prompt as a variable in a REPL. The root model writes code to slice and search it, then sends short chunks to sub-calls. In one trajectory in the RLM paper, the model classified data "using sub-LM calls over smaller chunks of the input (to avoid context rot and mistakes in larger contexts)."</li>
+        </ul>
+        <p>A short checklist before you send a long prompt:</p>
+        <ol>
+          <li>Measure your own task at two lengths: the full input and a hand-trimmed focused input. If the gap is large, you have context rot.</li>
+          <li>Put the instruction and the key facts at the start or end, not the middle.</li>
+          <li>Remove near-miss distractors (old versions, similar records) before the call, not after.</li>
+          <li>If the answer needs many scattered parts of the input, split the work so each call reads one part, then combine results in code.</li>
+          <li>Do not trust a needle-in-a-haystack score as proof that a model handles your length. RULER and NoLiMa show the gap.</li>
+        </ol>
+
+        <h2>The bottom line</h2>
+        <p>Context rot is the measured fact that a model's accuracy depends on how long its input is, not just on whether the answer is in it. Four independent studies from 2023 to 2025 show the drop, from position bias to plain length effects on trivial tasks. The causes are still debated. The fix is not. Keep each model call short and focused, and let retrieval, compaction, or recursion decide what goes in.</p>
+    </div>
+
+        <div class="ref-list">
+        <h3>References &amp; Further Reading</h3>
+        <ol>
+            <li>Hong, K., Troynikov, A., Huber, J. "Context Rot: How Increasing Input Tokens Impacts LLM Performance." Chroma technical report, July 14, 2025. 18 models, length-controlled tasks, LongMemEval focused vs full prompts, shuffled haystack result. <a href="https://research.trychroma.com/context-rot">research.trychroma.com/context-rot</a></li>
+            <li>Liu, N. F., et al. "Lost in the Middle: How Language Models Use Long Contexts." TACL, 2023 (arXiv:2307.03172). Recall is highest at the start and end of the input. <a href="https://arxiv.org/abs/2307.03172">arxiv.org/abs/2307.03172</a></li>
+            <li>Hsieh, C.-P., et al. "RULER: What's the Real Context Size of Your Long-Context Language Models?" COLM 2024 (arXiv:2404.06654). 17 models, only half satisfactory at 32K. <a href="https://arxiv.org/abs/2404.06654">arxiv.org/abs/2404.06654</a></li>
+            <li>Modarressi, A., et al. "NoLiMa: Long-Context Evaluation Beyond Literal Matching." ICML 2025 (arXiv:2502.05167). 11 of 13 models below 50% of baseline at 32K; GPT-4o 99.3% to 69.7%. <a href="https://arxiv.org/abs/2502.05167">arxiv.org/abs/2502.05167</a></li>
+            <li>Zhang, A. L., Kraska, T., Khattab, O. "Recursive Language Models." arXiv:2512.24601. Cites context rot as motivation; GPT-5 degrades with input length and task complexity. <a href="https://arxiv.org/abs/2512.24601">arxiv.org/abs/2512.24601</a></li>
+            <li>Zhang, A. "Recursive Language Models." Author blog, 2025. Argues the recall definition of context rot is incomplete. <a href="https://alexzhang13.github.io/blog/2025/rlm/">alexzhang13.github.io/blog/2025/rlm</a></li>
+            <li>Anthropic. "Effective context engineering for AI agents." Anthropic Engineering. Definition of context rot, attention budget, just-in-time loading, compaction, sub-agents. <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a></li>
+        </ol>
+    </div>
+
+</div>
+</div>
+        <section class="section" id="faq">
+            <div class="section-label" style="font-size: 12px; font-weight: 600; color: var(--accent, #0d9488); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">FAQ</div>
+            <h2>Frequently asked questions</h2>
+            <div style="margin-top: 20px;">
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Who coined the term context rot?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No source we found shows who first used the phrase. Chroma&#x27;s July 2025 technical report by Hong, Troynikov, and Huber gave it a measured definition across 18 models. Anthropic and the RLM authors both cite that framing.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Does a bigger context window fix context rot?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">No. RULER found that only half of models claiming 32K or more tokens kept satisfactory performance at 32K. A larger window raises the hard limit but does not stop accuracy from falling well before it.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Do reasoning or thinking models avoid context rot?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">They reduce it but do not remove it. Chroma found thinking modes improved both short and long versions of LongMemEval questions, yet the gap between them stayed. NoLiMa reported that reasoning models and chain-of-thought prompting still struggled at long lengths.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">Is context rot the same as the lost-in-the-middle effect?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Lost in the middle is one part of it. It describes recall that depends on where a fact sits in the prompt. Context rot is broader and includes drops from length alone, distractors, and weak semantic matching.</p>
+                </div>
+                <div style="border-bottom: 1px solid var(--border, #e2e8f0); padding: 20px 0;">
+                    <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-display, Georgia, serif);">How can I test my own application for context rot?</h3>
+                    <p style="font-size: 16px; color: var(--text-secondary, #475569); margin: 0;">Run the same questions twice: once with the full input and once with only the relevant passages. Hold the model and prompt template fixed. A large accuracy gap between the two runs is context rot in your workload.</p>
+                </div>
+            </div>
+        </section>
+
+<footer class="site-footer">
+    <p>rlm.md -- Built to explain, not to impress. Content updated September 2026.</p>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.01 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

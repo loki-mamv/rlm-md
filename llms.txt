@@ -14,6 +14,7 @@
 
 ## Blog Posts
 
+- [What Is Context Rot, and Why Do LLMs Get Worse as Input Gets Longer? | rlm.md](https://rlm.md/blog/what-is-context-rot-why-llms-get-worse-with-longer-input.html)
 - [Why Do Reasoning Models Cost More to Serve Than Standard LLMs? | rlm.md](https://rlm.md/blog/why-do-reasoning-models-cost-more-to-serve.html)
 - [What Is the Difference Between Prefill and Decode in LLM Inference? | rlm.md](https://rlm.md/blog/prefill-vs-decode-in-llm-inference.html)
 - [Can You Train an RLM with Reinforcement Learning Instead of Distillation? | rlm.md](https://rlm.md/blog/can-you-train-an-rlm-with-reinforcement-learning.html)
