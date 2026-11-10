@@ -179,7 +179,7 @@
             </div>
             <div>
                 <p>RLMs are already being adopted by major frameworks, which tells you something about how seriously the community is taking this.</p>
-                <p><strong>DSPy (v3.1.2+)</strong> -- Stanford's programmatic LLM framework has built-in RLM support. You can initialize an RLM with <code>dspy.RLM('articles, question -> trends: list[str]')</code> and it handles the REPL, sub-calls, and aggregation transparently. It supports using a smaller model for sub-calls via the <code>sub_lm</code> parameter to reduce costs. DSPy 3.4.1 (October 12, 2026) lets the code that <code>dspy.RLM</code> writes build DSPy sub-agents, including a nested <code>dspy.RLM</code> (<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.4.1" target="_blank">DSPy 3.4.1 release notes</a>).</p>
+                <p><strong>DSPy (v3.1.1+)</strong> -- Stanford's programmatic LLM framework has built-in RLM support. The <code>dspy.RLM</code> module first shipped in DSPy 3.1.1 (January 19, 2026) (<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.1.1" target="_blank">DSPy 3.1.1 release notes</a>). You can initialize an RLM with <code>dspy.RLM('articles, question -> trends: list[str]')</code> and it handles the REPL, sub-calls, and aggregation transparently. It supports using a smaller model for sub-calls via the <code>sub_lm</code> parameter to reduce costs. DSPy 3.4.1 (October 12, 2026) lets the code that <code>dspy.RLM</code> writes build DSPy sub-agents, including a nested <code>dspy.RLM</code> (<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.4.1" target="_blank">DSPy 3.4.1 release notes</a>).</p>
                 <p><strong>Google ADK</strong> -- Liam Connell (Google Cloud) published an enterprise-ready reimplementation of RLMs using Google's Agent Development Kit. The ADK version extends the original paper with two notable innovations: <strong>lazy file loading</strong> (the context object references files on disk or in GCS buckets rather than loading everything into memory) and <strong>parallelism</strong> (sub-calls can run concurrently rather than sequentially). The implementation pushed ADK's primitives to their limits -- the recursive nature required dropping down from LLMAgent to the bare-bones BaseAgent.</p>
                 <p><strong>Coding agents</strong> -- As several commentators have noted, tools like Claude Code and Gemini CLI already use sub-agent patterns that resemble RLMs. The difference is that these tools don't externalize the user prompt as a REPL variable, so they're still bounded by context limits on the input side. But the conceptual overlap suggests RLMs may become the default inference pattern for coding agents.</p>
             </div>
@@ -204,7 +204,7 @@
 </div>
 
 <footer class="site-footer">
-    <p>rlm.md -- Built to explain, not to impress. Content updated October 2026.</p>
+    <p>rlm.md -- Built to explain, not to impress. Content updated November 10, 2026.</p>
 </footer>
 
 <script>
